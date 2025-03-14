@@ -3,186 +3,104 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Custom Route with Google Maps</title>
+    <title>In-App Navigation</title>
     
     <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBCN_NsTb_psU3rjRw8t7-Pn7lcKJiut8w&libraries=places&callback=initMap" async defer></script>
     
     <style>
-        html, body {
-            height: 100%;
-            margin: 0;
-            padding: 0;
-            font-family: Arial, sans-serif;
-        }
-        #map {
-            height: 100%;
-            width: 100%;
-        }
+        html, body { height: 100%; margin: 0; padding: 0; font-family: Arial, sans-serif; }
+        #map { height: 100vh; width: 100%; }
         .controls {
-            position: absolute;
-            top: 10px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: white;
-            padding: 10px;
-            border-radius: 5px;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-            z-index: 1;
-            display: flex;
-            align-items: center;
-            gap: 10px;
+            position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+            background: white; padding: 10px; border-radius: 5px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3); z-index: 1;
+            display: flex; flex-direction: column; align-items: center; gap: 10px;
         }
         input[type="text"] {
-            width: 300px;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 3px;
+            width: 90%; max-width: 300px; padding: 8px; border: 1px solid #ddd; border-radius: 3px;
             font-size: 14px;
         }
         button {
-            padding: 8px 12px;
-            background: #4285f4;
-            color: white;
-            border: none;
-            border-radius: 3px;
-            cursor: pointer;
-            font-size: 14px;
+            padding: 10px; background: #4285f4; color: white;
+            border: none; border-radius: 5px; cursor: pointer; font-size: 16px; width: 100%;
         }
-        button:hover {
-            background: #357abd;
+        button:hover { background: #357abd; }
+        #navigation-panel {
+            position: absolute; bottom: 0; width: 100%; background: white;
+            padding: 10px; text-align: center; font-size: 18px; font-weight: bold;
         }
     </style>
 
     <script>
-        let map, directionsService, directionsRenderer, autocompleteStart, streetViewPanorama, startMarker, endMarker;
-
-        const destination = { lat: 35.2742209525822, lng: 25.46192768647001 }; // Destination
-        const waypoints = [
-            { location: { lat: 35.27758433674887, lng: 25.467549596301573 }, stopover: true },
-            { location: { lat: 35.279939492320075, lng: 25.467601417649863 }, stopover: true },
-            { location: { lat: 35.278222832358345, lng: 25.466485618752 }, stopover: true },
-            { location: { lat: 35.280745258936804, lng: 25.461292862342688 }, stopover: true }, 
-        ];
-
+        let map, directionsService, directionsRenderer, startMarker, userLocation, navigationStarted = false;
+        let speechSynthesis = window.speechSynthesis;
+        const destination = { lat: 35.2742209525822, lng: 25.46192768647001 };
+        
         function initMap() {
-            map = new google.maps.Map(document.getElementById("map"), {
-                zoom: 14,
-                center: { lat: 37.7749, lng: -122.4194 }, // Default center
-            });
-
+            map = new google.maps.Map(document.getElementById("map"), { zoom: 14, center: { lat: 37.7749, lng: -122.4194 } });
             directionsService = new google.maps.DirectionsService();
-            directionsRenderer = new google.maps.DirectionsRenderer({ map });
-
-            streetViewPanorama = map.getStreetView();
-            streetViewPanorama.setOptions({
-                pov: { heading: 165, pitch: 0 },
-                zoom: 1,
-            });
-
-            autocompleteStart = new google.maps.places.Autocomplete(
-                document.getElementById("start"), { types: ["geocode"] }
+            directionsRenderer = new google.maps.DirectionsRenderer({ map, suppressMarkers: true });
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    userLocation = { lat: position.coords.latitude, lng: position.coords.longitude };
+                    map.setCenter(userLocation);
+                    setStartPoint(userLocation);
+                },
+                () => alert("Geolocation failed. Please enter manually."),
+                { enableHighAccuracy: true }
             );
-
-            autocompleteStart.addListener("place_changed", function () {
-                const place = autocompleteStart.getPlace();
-                if (!place.geometry) {
-                    alert("Please select a valid place.");
-                    return;
-                }
-                setStartPoint(place.geometry.location);
-            });
-
-            endMarker = new google.maps.Marker({
-                position: destination,
-                map: map,
-                title: "Destination",
-            });
-
             document.getElementById("get-directions").addEventListener("click", getDirections);
-            document.getElementById("street-view").addEventListener("click", toggleStreetView);
-            document.getElementById("current-location").addEventListener("click", setCurrentLocation);
-
-            map.addListener("click", (event) => setStartPoint(event.latLng));
-
-            setCurrentLocation(); // Automatically set location on load
-        }
-
-        function setCurrentLocation() {
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    (position) => {
-                        const userLocation = { lat: position.coords.latitude, lng: position.coords.longitude };
-                        map.setCenter(userLocation);
-                        setStartPoint(userLocation);
-                    },
-                    (error) => { alert(`Geolocation error: ${error.message}`); }
-                );
-            } else {
-                alert("Geolocation is not supported by your browser.");
-            }
+            document.getElementById("start-navigation").addEventListener("click", startNavigation);
         }
 
         function setStartPoint(location) {
-            if (!location) {
-                alert("Invalid location.");
-                return;
-            }
+            if (!location) return;
             if (startMarker) startMarker.setMap(null);
             startMarker = new google.maps.Marker({ position: location, map: map, title: "Start Point" });
-            document.getElementById("start").value = `${location.lat()}, ${location.lng()}`;
+            document.getElementById("start").value = `${location.lat}, ${location.lng}`;
         }
 
         function getDirections() {
             const start = document.getElementById("start").value;
-            if (!start) {
-                alert("Please enter a starting point.");
-                return;
-            }
-            const request = {
-                origin: start,
-                destination: destination,
-                waypoints: waypoints,
-                optimizeWaypoints: true,
-                travelMode: google.maps.TravelMode.DRIVING,
-            };
-
-            directionsService.route(request, (response, status) => {
+            if (!start) return alert("Please enter a starting point.");
+            directionsService.route({
+                origin: start, destination, travelMode: google.maps.TravelMode.DRIVING
+            }, (response, status) => {
                 if (status === "OK") {
                     directionsRenderer.setDirections(response);
-                    map.setCenter(response.routes[0].bounds.getCenter());
+                    document.getElementById("start-navigation").style.display = "block";
                 } else {
-                    alert("Directions request failed. Check API key and Directions API settings.");
+                    alert("Directions request failed.");
                 }
             });
         }
 
-        function toggleStreetView() {
-            const start = document.getElementById("start").value;
-            if (!start) {
-                alert("Please enter a location for Street View.");
-                return;
+        function startNavigation() {
+            if (navigationStarted) return;
+            navigationStarted = true;
+            const route = directionsRenderer.getDirections().routes[0].legs[0];
+            let stepIndex = 0;
+            
+            function announceStep() {
+                if (stepIndex >= route.steps.length) return;
+                const step = route.steps[stepIndex];
+                document.getElementById("navigation-panel").innerText = step.instructions.replace(/<[^>]*>?/gm, '');
+                const speech = new SpeechSynthesisUtterance(step.instructions.replace(/<[^>]*>?/gm, ''));
+                speechSynthesis.speak(speech);
+                stepIndex++;
+                setTimeout(announceStep, step.duration.value * 1000);
             }
-
-            const [lat, lng] = start.split(",").map(Number);
-            if (!isNaN(lat) && !isNaN(lng)) {
-                streetViewPanorama.setPosition({ lat, lng });
-                streetViewPanorama.setVisible(!streetViewPanorama.getVisible());
-            } else {
-                alert("Invalid coordinates for Street View.");
-            }
+            announceStep();
         }
     </script>
 </head>
 <body>
-
     <div class="controls">
         <input type="text" id="start" placeholder="Enter starting point" />
         <button id="get-directions">Get Directions</button>
-        <button id="street-view">Street View</button>
-        <button id="current-location">Use Current Location</button>
+        <button id="start-navigation" style="display: none;">Start Navigation</button>
     </div>
-
     <div id="map"></div>
-
+    <div id="navigation-panel">Navigation Instructions</div>
 </body>
 </html>
