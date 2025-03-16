@@ -4,49 +4,266 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Navigate to Us</title>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap" rel="stylesheet">
   <style>
     body {
-      font-family: Arial, sans-serif;
+      font-family: 'Roboto', Arial, sans-serif;
       margin: 0;
       padding: 0;
       display: flex;
       flex-direction: column;
       height: 100vh;
+      color: #3c4043;
     }
     #map {
       flex: 1;
       width: 100%;
+      position: relative;
     }
     #controls {
-      padding: 10px;
-      background: #f5f5f5;
-      border-top: 1px solid #ddd;
-      text-align: center;
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      padding: 12px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      z-index: 1;
+      min-width: 250px;
     }
     #coordinates {
-      margin-bottom: 10px;
-      font-size: 14px;
+      margin-bottom: 12px;
+      font-size: 13px;
+      color: #5f6368;
+      padding: 8px 0;
+      border-bottom: 1px solid #e8eaed;
+    }
+    .button-container {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
     }
     button {
-      padding: 10px 20px;
-      font-size: 16px;
-      background-color: #007BFF;
+      padding: 8px 16px;
+      font-size: 14px;
+      font-weight: 500;
+      background-color: #1a73e8;
       color: white;
       border: none;
-      border-radius: 5px;
+      border-radius: 4px;
       cursor: pointer;
+      transition: background-color 0.2s;
+      width: 100%;
+      text-align: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
     }
     button:hover {
-      background-color: #0056b3;
+      background-color: #1557b0;
+    }
+    button:active {
+      background-color: #174ea6;
+    }
+    .map-control {
+      position: fixed;
+      right: 10px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      overflow: hidden;
+    }
+    #zoom-controls {
+      top: 10px;
+      display: flex;
+      flex-direction: column;
+    }
+    .zoom-button {
+      padding: 8px;
+      font-size: 18px;
+      background: white;
+      border: none;
+      border-bottom: 1px solid #e8eaed;
+      cursor: pointer;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .zoom-button:last-child {
+      border-bottom: none;
+    }
+    .zoom-button:hover {
+      background-color: #f8f9fa;
+    }
+    #loading-indicator {
+      display: none;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: white;
+      padding: 16px 24px;
+      border-radius: 24px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      z-index: 2;
+    }
+    /* Material Icons */
+    .material-icons {
+      font-family: 'Material Icons';
+      font-size: 20px;
+      margin-right: 4px;
+    }
+
+    #route-panel {
+      position: fixed;
+      right: 10px;
+      top: 100px;
+      width: 300px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      z-index: 1;
+      max-height: 60vh;
+      overflow-y: auto;
+      display: none;
+    }
+
+    #route-summary {
+      padding: 16px;
+      border-bottom: 1px solid #e8eaed;
+    }
+
+    #route-details {
+      padding: 16px;
+    }
+
+    .route-step {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 12px;
+      font-size: 13px;
+      color: #3c4043;
+    }
+
+    .step-icon {
+      color: #1a73e8;
+      flex-shrink: 0;
+    }
+
+    .step-distance {
+      color: #5f6368;
+      font-size: 12px;
+      margin-top: 4px;
+    }
+
+    #travel-modes {
+      display: flex;
+      gap: 8px;
+      margin: 8px 0;
+      justify-content: center;
+    }
+
+    .travel-mode-btn {
+      flex: 1;
+      padding: 8px;
+      background: #f8f9fa;
+      color: #3c4043;
+    }
+
+    .travel-mode-btn.active {
+      background: #1a73e8;
+      color: white;
+    }
+
+    .travel-mode-btn:hover:not(.active) {
+      background: #e8eaed;
+    }
+
+    #search-box {
+      margin-bottom: 12px;
+    }
+
+    #location-search {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #e8eaed;
+      border-radius: 4px;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+
+    #location-search:focus {
+      outline: none;
+      border-color: #1a73e8;
+    }
+
+    .pac-container {
+      border-radius: 4px;
+      margin-top: 4px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
     }
   </style>
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 </head>
 <body>
   <div id="map"></div>
   <div id="controls">
+    <div id="search-box">
+      <input 
+        id="location-search" 
+        type="text" 
+        placeholder="Enter a starting location"
+        autocomplete="off"
+      >
+    </div>
     <div id="coordinates">Current Location: Fetching...</div>
-    <button id="useLocation">Use Current Location</button>
-    <button id="startNavigation">Start Navigation</button>
+    <div class="button-container">
+      <button id="useLocation">
+        <span class="material-icons">my_location</span>
+        Use Current Location
+      </button>
+      <div id="travel-modes">
+        <button class="travel-mode-btn active" data-mode="DRIVING">
+          <span class="material-icons">directions_car</span>
+        </button>
+        <button class="travel-mode-btn" data-mode="WALKING">
+          <span class="material-icons">directions_walk</span>
+        </button>
+        <button class="travel-mode-btn" data-mode="BICYCLING">
+          <span class="material-icons">directions_bike</span>
+        </button>
+      </div>
+      <button id="startNavigation">
+        <span class="material-icons">directions</span>
+        Start Navigation
+      </button>
+    </div>
+  </div>
+  
+  <div id="zoom-controls" class="map-control">
+    <button class="zoom-button" onclick="map.setZoom(map.getZoom() + 1)">
+      <span class="material-icons">add</span>
+    </button>
+    <button class="zoom-button" onclick="map.setZoom(map.getZoom() - 1)">
+      <span class="material-icons">remove</span>
+    </button>
+  </div>
+
+  <div id="loading-indicator">
+    Calculating route...
+  </div>
+
+  <div id="route-panel">
+    <div id="route-summary">
+      <h3 style="margin: 0 0 8px 0;">Route Information</h3>
+      <div id="total-distance"></div>
+      <div id="total-duration"></div>
+    </div>
+    <div id="route-details"></div>
   </div>
 
   <script>
@@ -66,28 +283,146 @@
 
     let map;
     let userLocation = null;
+    let directionsRenderer = null;
+    let currentTravelMode = 'DRIVING';
+    let currentLocationMarker = null;
 
-    // Initialize the map
+    // Initialize the map with Google Maps styling
     function initMap() {
-      map = new google.maps.Map(document.getElementById("map"), {
+      const mapOptions = {
         zoom: 14,
-        center: destination, // Center the map on the destination
-      });
+        center: destination,
+        zoomControl: false,
+        mapTypeControl: true,
+        mapTypeControlOptions: {
+          style: google.maps.MapTypeControlStyle.DROPDOWN_MENU,
+          position: google.maps.ControlPosition.TOP_RIGHT
+        },
+        streetViewControl: true,
+        streetViewControlOptions: {
+          position: google.maps.ControlPosition.RIGHT_BOTTOM
+        },
+        fullscreenControl: true,
+        fullscreenControlOptions: {
+          position: google.maps.ControlPosition.RIGHT_TOP
+        },
+        styles: [
+          {
+            featureType: "poi",
+            elementType: "labels",
+            stylers: [{ visibility: "on" }]
+          },
+          {
+            featureType: "transit",
+            elementType: "labels",
+            stylers: [{ visibility: "on" }]
+          }
+        ]
+      };
 
-      // Add a marker for the destination
+      map = new google.maps.Map(document.getElementById("map"), mapOptions);
+
+      // Add a marker for the destination only
       new google.maps.Marker({
         position: destination,
         map: map,
         title: "Destination",
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 10,
+          fillColor: "#1a73e8",
+          fillOpacity: 1,
+          strokeColor: "#ffffff",
+          strokeWeight: 2,
+        }
       });
 
-      // Fetch the user's current location
-      document.getElementById("useLocation").addEventListener("click", fetchUserLocation);
+      directionsRenderer = new google.maps.DirectionsRenderer({
+        map: map,
+        suppressMarkers: true,
+        polylineOptions: {
+          strokeColor: "#1a73e8",
+          strokeWeight: 5,
+          strokeOpacity: 0.8
+        }
+      });
+
+      // Try to get user's location by default
+      fetchUserLocation(false);
+
+      document.getElementById("useLocation").addEventListener("click", () => fetchUserLocation(true));
       document.getElementById("startNavigation").addEventListener("click", startNavigation);
+
+      // Add travel mode listeners
+      document.querySelectorAll('.travel-mode-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.travel-mode-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          currentTravelMode = btn.dataset.mode;
+          if (userLocation) {
+            calculateRoute(userLocation);
+          }
+        });
+      });
+
+      // Initialize the autocomplete search box
+      const searchInput = document.getElementById('location-search');
+      const autocomplete = new google.maps.places.Autocomplete(searchInput, {
+        fields: ['geometry', 'formatted_address']
+      });
+
+      autocomplete.addListener('place_changed', () => {
+        const place = autocomplete.getPlace();
+        if (!place.geometry) {
+          alert("No location found for the entered address.");
+          return;
+        }
+
+        userLocation = {
+          lat: place.geometry.location.lat(),
+          lng: place.geometry.location.lng()
+        };
+
+        updateStartingLocationMarker(userLocation);
+        calculateRoute(userLocation);
+        
+        // Update coordinates display with the address
+        document.getElementById("coordinates").textContent = 
+          `Starting Point: ${place.formatted_address}`;
+      });
     }
 
-    // Fetch the user's current location
-    function fetchUserLocation() {
+    // Function to update the starting location marker
+    function updateStartingLocationMarker(location) {
+      // Remove existing marker if any
+      if (currentLocationMarker) {
+        currentLocationMarker.setMap(null);
+      }
+
+      // Add new marker
+      currentLocationMarker = new google.maps.Marker({
+        position: location,
+        map: map,
+        title: "Starting Location",
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 12,
+          fillColor: "#4285f4",
+          fillOpacity: 1,
+          strokeColor: "#ffffff",
+          strokeWeight: 2,
+        }
+      });
+    }
+
+    // Fetch the user's current location with loading indicator
+    function fetchUserLocation(showLoadingIndicator) {
+      if (showLoadingIndicator) {
+        const loadingIndicator = document.getElementById("loading-indicator");
+        loadingIndicator.style.display = "block";
+        loadingIndicator.textContent = "Getting your location...";
+      }
+
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
           (position) => {
@@ -98,27 +433,40 @@
 
             // Update the coordinates display
             document.getElementById("coordinates").textContent =
-              `Current Location: ${userLocation.lat.toFixed(6)}, ${userLocation.lng.toFixed(6)}`;
+              `Starting Point: Current Location`;
+            
+            // Clear any entered address
+            document.getElementById("location-search").value = '';
 
-            // Calculate and display the route
+            updateStartingLocationMarker(userLocation);
+
+            if (showLoadingIndicator) {
+              const loadingIndicator = document.getElementById("loading-indicator");
+              loadingIndicator.textContent = "Calculating route...";
+            }
+            
             calculateRoute(userLocation);
           },
           (error) => {
+            if (showLoadingIndicator) {
+              const loadingIndicator = document.getElementById("loading-indicator");
+              loadingIndicator.style.display = "none";
+            }
             alert("Error getting your location: " + error.message);
           }
         );
       } else {
+        if (showLoadingIndicator) {
+          const loadingIndicator = document.getElementById("loading-indicator");
+          loadingIndicator.style.display = "none";
+        }
         alert("Geolocation is not supported by your browser.");
       }
     }
 
-    // Calculate and display the route
+    // Calculate and display the route with enhanced styling
     function calculateRoute(origin) {
       const directionsService = new google.maps.DirectionsService();
-      const directionsRenderer = new google.maps.DirectionsRenderer({
-        map: map,
-        suppressMarkers: true, // Hide markers for waypoints
-      });
 
       const request = {
         origin: origin,
@@ -127,16 +475,91 @@
           location: waypoint,
           stopover: true,
         })),
-        travelMode: google.maps.TravelMode.DRIVING,
+        travelMode: google.maps.TravelMode[currentTravelMode],
+        optimizeWaypoints: true
       };
 
       directionsService.route(request, (result, status) => {
+        const loadingIndicator = document.getElementById("loading-indicator");
+        loadingIndicator.style.display = "none";
+
         if (status === google.maps.DirectionsStatus.OK) {
           directionsRenderer.setDirections(result);
+          
+          // Fit the map to the route bounds with padding
+          const bounds = result.routes[0].bounds;
+          map.fitBounds(bounds, {
+            padding: {
+              top: 50,
+              right: 50,
+              bottom: 50,
+              left: 50
+            }
+          });
+
+          // Display route information
+          displayRouteInfo(result);
         } else {
           alert("Failed to calculate route: " + status);
         }
       });
+    }
+
+    // Display route information
+    function displayRouteInfo(result) {
+      const route = result.routes[0];
+      const routePanel = document.getElementById("route-panel");
+      const routeDetails = document.getElementById("route-details");
+      const totalDistance = document.getElementById("total-distance");
+      const totalDuration = document.getElementById("total-duration");
+
+      // Calculate total distance and duration
+      let distance = 0;
+      let duration = 0;
+      route.legs.forEach(leg => {
+        distance += leg.distance.value;
+        duration += leg.duration.value;
+      });
+
+      // Convert to kilometers and hours/minutes
+      const distanceKm = (distance / 1000).toFixed(1);
+      const hours = Math.floor(duration / 3600);
+      const minutes = Math.floor((duration % 3600) / 60);
+
+      // Update summary
+      totalDistance.innerHTML = `<strong>Total Distance:</strong> ${distanceKm} km`;
+      totalDuration.innerHTML = `<strong>Estimated Time:</strong> ${hours}h ${minutes}min`;
+
+      // Clear previous details
+      routeDetails.innerHTML = '';
+
+      // Add turn-by-turn directions
+      route.legs.forEach(leg => {
+        leg.steps.forEach(step => {
+          const stepDiv = document.createElement('div');
+          stepDiv.className = 'route-step';
+          
+          // Determine appropriate icon based on the maneuver
+          let icon = 'arrow_forward';
+          if (step.maneuver) {
+            if (step.maneuver.includes('left')) icon = 'turn_left';
+            if (step.maneuver.includes('right')) icon = 'turn_right';
+            if (step.maneuver.includes('uturn')) icon = 'u_turn_left';
+          }
+
+          stepDiv.innerHTML = `
+            <span class="material-icons step-icon">${icon}</span>
+            <div>
+              <div>${step.instructions}</div>
+              <div class="step-distance">${step.distance.text}</div>
+            </div>
+          `;
+          routeDetails.appendChild(stepDiv);
+        });
+      });
+
+      // Show the route panel
+      routePanel.style.display = 'block';
     }
 
     // Start navigation in Google Maps
@@ -156,7 +579,7 @@
   <script
     async
     defer
-    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBCN_NsTb_psU3rjRw8t7-Pn7lcKJiut8w&callback=initMap"
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBCN_NsTb_psU3rjRw8t7-Pn7lcKJiut8w&libraries=places&callback=initMap"
   ></script>
 </body>
-</html>
+</html> 
