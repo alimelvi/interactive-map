@@ -206,6 +206,92 @@
       margin-top: 4px;
       box-shadow: 0 2px 4px rgba(0,0,0,0.2);
     }
+
+    @media (max-width: 768px) {
+      #controls {
+        left: 50%;
+        transform: translateX(-50%);
+        width: calc(100% - 32px);
+        max-width: 400px;
+      }
+
+      #zoom-controls {
+        bottom: 100px;
+        top: auto;
+      }
+
+      #route-panel {
+        position: fixed;
+        right: 0;
+        top: auto;
+        bottom: 0;
+        width: 100%;
+        max-height: 50vh;
+        border-radius: 12px 12px 0 0;
+        transform: translateY(100%);
+        transition: transform 0.3s ease-in-out;
+      }
+
+      #route-panel.open {
+        transform: translateY(0);
+      }
+
+      #route-toggle {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        width: auto;
+        padding: 12px;
+        border-radius: 50%;
+        aspect-ratio: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        z-index: 2;
+      }
+
+      #route-toggle .material-icons {
+        margin: 0;
+      }
+
+      #route-panel-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 16px;
+        border-bottom: 1px solid #e8eaed;
+      }
+
+      #route-panel-header h3 {
+        margin: 0;
+      }
+
+      .close-panel {
+        background: none;
+        border: none;
+        padding: 8px;
+        cursor: pointer;
+        color: #5f6368;
+      }
+
+      .close-panel:hover {
+        background: none;
+        color: #1a73e8;
+      }
+
+      #travel-modes {
+        margin: 12px 0;
+      }
+
+      .travel-mode-btn {
+        padding: 12px;
+      }
+
+      #location-search {
+        padding: 12px;
+      }
+    }
   </style>
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 </head>
@@ -257,9 +343,18 @@
     Calculating route...
   </div>
 
+  <button id="route-toggle" style="display: none;">
+    <span class="material-icons">info</span>
+  </button>
+
   <div id="route-panel">
+    <div id="route-panel-header">
+      <h3>Route Information</h3>
+      <button class="close-panel">
+        <span class="material-icons">close</span>
+      </button>
+    </div>
     <div id="route-summary">
-      <h3 style="margin: 0 0 8px 0;">Route Information</h3>
       <div id="total-distance"></div>
       <div id="total-duration"></div>
     </div>
@@ -390,6 +485,21 @@
         document.getElementById("coordinates").textContent = 
           `Starting Point: ${place.formatted_address}`;
       });
+
+      // Add route panel toggle functionality
+      const routeToggle = document.getElementById('route-toggle');
+      const routePanel = document.getElementById('route-panel');
+      const closePanel = document.querySelector('.close-panel');
+
+      routeToggle.addEventListener('click', () => {
+        routePanel.classList.add('open');
+        routeToggle.style.display = 'none';
+      });
+
+      closePanel.addEventListener('click', () => {
+        routePanel.classList.remove('open');
+        routeToggle.style.display = 'flex';
+      });
     }
 
     // Function to update the starting location marker
@@ -512,6 +622,7 @@
       const routeDetails = document.getElementById("route-details");
       const totalDistance = document.getElementById("total-distance");
       const totalDuration = document.getElementById("total-duration");
+      const routeToggle = document.getElementById("route-toggle");
 
       // Calculate total distance and duration
       let distance = 0;
@@ -539,7 +650,6 @@
           const stepDiv = document.createElement('div');
           stepDiv.className = 'route-step';
           
-          // Determine appropriate icon based on the maneuver
           let icon = 'arrow_forward';
           if (step.maneuver) {
             if (step.maneuver.includes('left')) icon = 'turn_left';
@@ -558,8 +668,8 @@
         });
       });
 
-      // Show the route panel
-      routePanel.style.display = 'block';
+      // Show route toggle button
+      routeToggle.style.display = 'flex';
     }
 
     // Start navigation in Google Maps
