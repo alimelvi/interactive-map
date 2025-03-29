@@ -583,7 +583,7 @@
         destination: destination,
         waypoints: waypoints.map((waypoint) => ({
           location: waypoint,
-          stopover: true,
+          stopover: false, // Changed to false to make them pass-through points
         })),
         travelMode: google.maps.TravelMode[currentTravelMode],
         optimizeWaypoints: true
@@ -672,15 +672,20 @@
       routeToggle.style.display = 'flex';
     }
 
-    // Start navigation in Google Maps
+    // Start navigation in Google Maps with continuous routing
     function startNavigation() {
       if (!userLocation) {
         alert("Please fetch your current location first.");
         return;
       }
 
-      const waypointsStr = waypoints.map((waypoint) => `${waypoint.lat},${waypoint.lng}`).join("|");
-      const url = `https://www.google.com/maps/dir/?api=1&origin=${userLocation.lat},${userLocation.lng}&destination=${destination.lat},${destination.lng}&waypoints=${waypointsStr}&dir_action=navigate`;
+      // Convert waypoints to string with 'via:' prefix for continuous routing
+      const waypointsStr = waypoints.map((waypoint) => `via:${waypoint.lat},${waypoint.lng}`).join("|");
+      
+      // Create navigation URL with optimized parameters
+      const url = `https://www.google.com/maps/dir/?api=1&origin=${userLocation.lat},${userLocation.lng}&destination=${destination.lat},${destination.lng}&waypoints=${waypointsStr}&travelmode=${currentTravelMode.toLowerCase()}&dir_action=navigate`;
+      
+      // Open in new tab
       window.open(url, "_blank");
     }
   </script>
@@ -692,4 +697,4 @@
     src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBCN_NsTb_psU3rjRw8t7-Pn7lcKJiut8w&libraries=places&callback=initMap"
   ></script>
 </body>
-</html> 
+</html>
