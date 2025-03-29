@@ -365,10 +365,10 @@
     // Your Google Maps API key
     const apiKey = "AIzaSyBCN_NsTb_psU3rjRw8t7-Pn7lcKJiut8w";
 
-    // Destination coordinates (from your link)
+    // Destination coordinates
     const destination = { lat: 35.27353552933397, lng: 25.46198725258581 };
 
-    // Waypoints coordinates (from your link)
+    // Waypoints coordinates
     const waypoints = [
       { lat: 35.27752979377787, lng: 25.467648822116395 },
       { lat: 35.27981652933252, lng: 25.467600687173636 },
@@ -382,7 +382,7 @@
     let currentTravelMode = 'DRIVING';
     let currentLocationMarker = null;
 
-    // Initialize the map with Google Maps styling
+    // Initialize the map
     function initMap() {
       const mapOptions = {
         zoom: 14,
@@ -417,7 +417,7 @@
 
       map = new google.maps.Map(document.getElementById("map"), mapOptions);
 
-      // Add a marker for the destination only
+      // Add destination marker
       new google.maps.Marker({
         position: destination,
         map: map,
@@ -445,10 +445,11 @@
       // Try to get user's location by default
       fetchUserLocation(false);
 
+      // Event listeners
       document.getElementById("useLocation").addEventListener("click", () => fetchUserLocation(true));
       document.getElementById("startNavigation").addEventListener("click", startNavigation);
 
-      // Add travel mode listeners
+      // Travel mode listeners
       document.querySelectorAll('.travel-mode-btn').forEach(btn => {
         btn.addEventListener('click', () => {
           document.querySelectorAll('.travel-mode-btn').forEach(b => b.classList.remove('active'));
@@ -460,7 +461,7 @@
         });
       });
 
-      // Initialize the autocomplete search box
+      // Initialize autocomplete search
       const searchInput = document.getElementById('location-search');
       const autocomplete = new google.maps.places.Autocomplete(searchInput, {
         fields: ['geometry', 'formatted_address']
@@ -481,12 +482,11 @@
         updateStartingLocationMarker(userLocation);
         calculateRoute(userLocation);
         
-        // Update coordinates display with the address
         document.getElementById("coordinates").textContent = 
           `Starting Point: ${place.formatted_address}`;
       });
 
-      // Add route panel toggle functionality
+      // Route panel toggle
       const routeToggle = document.getElementById('route-toggle');
       const routePanel = document.getElementById('route-panel');
       const closePanel = document.querySelector('.close-panel');
@@ -502,14 +502,12 @@
       });
     }
 
-    // Function to update the starting location marker
+    // Update starting location marker
     function updateStartingLocationMarker(location) {
-      // Remove existing marker if any
       if (currentLocationMarker) {
         currentLocationMarker.setMap(null);
       }
 
-      // Add new marker
       currentLocationMarker = new google.maps.Marker({
         position: location,
         map: map,
@@ -525,7 +523,7 @@
       });
     }
 
-    // Fetch the user's current location with loading indicator
+    // Get user's current location
     function fetchUserLocation(showLoadingIndicator) {
       if (showLoadingIndicator) {
         const loadingIndicator = document.getElementById("loading-indicator");
@@ -541,11 +539,9 @@
               lng: position.coords.longitude,
             };
 
-            // Update the coordinates display
             document.getElementById("coordinates").textContent =
               `Starting Point: Current Location`;
             
-            // Clear any entered address
             document.getElementById("location-search").value = '';
 
             updateStartingLocationMarker(userLocation);
@@ -574,16 +570,16 @@
       }
     }
 
-    // Calculate and display the route with enhanced styling
+    // Calculate route through waypoints
     function calculateRoute(origin) {
       const directionsService = new google.maps.DirectionsService();
 
       const request = {
         origin: origin,
         destination: destination,
-        waypoints: waypoints.map((waypoint) => ({
+        waypoints: waypoints.map(waypoint => ({
           location: waypoint,
-          stopover: false, // Changed to false to make them pass-through points
+          stopover: false // Critical for pass-through waypoints
         })),
         travelMode: google.maps.TravelMode[currentTravelMode],
         optimizeWaypoints: true
@@ -596,18 +592,12 @@
         if (status === google.maps.DirectionsStatus.OK) {
           directionsRenderer.setDirections(result);
           
-          // Fit the map to the route bounds with padding
-          const bounds = result.routes[0].bounds;
-          map.fitBounds(bounds, {
-            padding: {
-              top: 50,
-              right: 50,
-              bottom: 50,
-              left: 50
-            }
+          const bounds = new google.maps.LatLngBounds();
+          result.routes[0].overview_path.forEach(path => {
+            bounds.extend(path);
           });
+          map.fitBounds(bounds, { padding: 50 });
 
-          // Display route information
           displayRouteInfo(result);
         } else {
           alert("Failed to calculate route: " + status);
@@ -624,7 +614,6 @@
       const totalDuration = document.getElementById("total-duration");
       const routeToggle = document.getElementById("route-toggle");
 
-      // Calculate total distance and duration
       let distance = 0;
       let duration = 0;
       route.legs.forEach(leg => {
@@ -632,19 +621,15 @@
         duration += leg.duration.value;
       });
 
-      // Convert to kilometers and hours/minutes
       const distanceKm = (distance / 1000).toFixed(1);
       const hours = Math.floor(duration / 3600);
       const minutes = Math.floor((duration % 3600) / 60);
 
-      // Update summary
       totalDistance.innerHTML = `<strong>Total Distance:</strong> ${distanceKm} km`;
       totalDuration.innerHTML = `<strong>Estimated Time:</strong> ${hours}h ${minutes}min`;
 
-      // Clear previous details
       routeDetails.innerHTML = '';
 
-      // Add turn-by-turn directions
       route.legs.forEach(leg => {
         leg.steps.forEach(step => {
           const stepDiv = document.createElement('div');
@@ -668,33 +653,40 @@
         });
       });
 
-      // Show route toggle button
       routeToggle.style.display = 'flex';
     }
 
-    // Start navigation in Google Maps with continuous routing
+    // Start navigation with continuous routing
     function startNavigation() {
       if (!userLocation) {
-        alert("Please fetch your current location first.");
+        alert("Please set a starting location first.");
         return;
       }
 
-      // Convert waypoints to string with 'via:' prefix for continuous routing
-      const waypointsStr = waypoints.map((waypoint) => `via:${waypoint.lat},${waypoint.lng}`).join("|");
+      // Create a path that forces the route through all waypoints
+      const path = [
+        userLocation, 
+        ...waypoints, 
+        destination
+      ];
+
+      // Convert path to encoded polyline
+      const encodedPath = google.maps.geometry.encoding.encodePath(
+        path.map(point => new google.maps.LatLng(point.lat, point.lng))
+      );
+
+      // Create navigation URL using the encoded path
+      const url = `https://www.google.com/maps/dir/?api=1&origin=${userLocation.lat},${userLocation.lng}&destination=${destination.lat},${destination.lng}&travelmode=${currentTravelMode.toLowerCase()}&dir_action=navigate&path=enc:${encodedPath}`;
       
-      // Create navigation URL with optimized parameters
-      const url = `https://www.google.com/maps/dir/?api=1&origin=${userLocation.lat},${userLocation.lng}&destination=${destination.lat},${destination.lng}&waypoints=${waypointsStr}&travelmode=${currentTravelMode.toLowerCase()}&dir_action=navigate`;
-      
-      // Open in new tab
       window.open(url, "_blank");
     }
   </script>
 
-  <!-- Load the Google Maps JavaScript API with your API key -->
+  <!-- Load Google Maps API with geometry library -->
   <script
     async
     defer
-    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBCN_NsTb_psU3rjRw8t7-Pn7lcKJiut8w&libraries=places&callback=initMap"
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBCN_NsTb_psU3rjRw8t7-Pn7lcKJiut8w&libraries=places,geometry&callback=initMap"
   ></script>
 </body>
 </html>
