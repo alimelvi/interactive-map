@@ -1,10 +1,16 @@
+# Complete Updated Script for Route Optimization with Waypoints
+
+Here's the complete updated HTML file with all fixes and improvements:
+
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Navigate to Us</title>
+  <title>Optimized Route Navigation</title>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <style>
     body {
       font-family: 'Roboto', Arial, sans-serif;
@@ -110,13 +116,11 @@
       box-shadow: 0 2px 6px rgba(0,0,0,0.3);
       z-index: 2;
     }
-    /* Material Icons */
     .material-icons {
       font-family: 'Material Icons';
       font-size: 20px;
       margin-right: 4px;
     }
-
     #route-panel {
       position: fixed;
       right: 10px;
@@ -130,16 +134,13 @@
       overflow-y: auto;
       display: none;
     }
-
     #route-summary {
       padding: 16px;
       border-bottom: 1px solid #e8eaed;
     }
-
     #route-details {
       padding: 16px;
     }
-
     .route-step {
       display: flex;
       align-items: flex-start;
@@ -148,45 +149,37 @@
       font-size: 13px;
       color: #3c4043;
     }
-
     .step-icon {
       color: #1a73e8;
       flex-shrink: 0;
     }
-
     .step-distance {
       color: #5f6368;
       font-size: 12px;
       margin-top: 4px;
     }
-
     #travel-modes {
       display: flex;
       gap: 8px;
       margin: 8px 0;
       justify-content: center;
     }
-
     .travel-mode-btn {
       flex: 1;
       padding: 8px;
       background: #f8f9fa;
       color: #3c4043;
     }
-
     .travel-mode-btn.active {
       background: #1a73e8;
       color: white;
     }
-
     .travel-mode-btn:hover:not(.active) {
       background: #e8eaed;
     }
-
     #search-box {
       margin-bottom: 12px;
     }
-
     #location-search {
       width: 100%;
       padding: 8px 12px;
@@ -195,18 +188,39 @@
       font-size: 14px;
       box-sizing: border-box;
     }
-
     #location-search:focus {
       outline: none;
       border-color: #1a73e8;
     }
-
     .pac-container {
       border-radius: 4px;
       margin-top: 4px;
       box-shadow: 0 2px 4px rgba(0,0,0,0.2);
     }
-
+    #qr-code-container {
+      display: none;
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      background: white;
+      padding: 16px;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      z-index: 2;
+    }
+    #qr-code {
+      width: 150px;
+      height: 150px;
+      margin: 0 auto;
+    }
+    .close-qr {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      background: none;
+      border: none;
+      cursor: pointer;
+    }
     @media (max-width: 768px) {
       #controls {
         left: 50%;
@@ -214,12 +228,10 @@
         width: calc(100% - 32px);
         max-width: 400px;
       }
-
       #zoom-controls {
         bottom: 100px;
         top: auto;
       }
-
       #route-panel {
         position: fixed;
         right: 0;
@@ -231,11 +243,9 @@
         transform: translateY(100%);
         transition: transform 0.3s ease-in-out;
       }
-
       #route-panel.open {
         transform: translateY(0);
       }
-
       #route-toggle {
         position: fixed;
         bottom: 20px;
@@ -250,11 +260,9 @@
         box-shadow: 0 2px 6px rgba(0,0,0,0.3);
         z-index: 2;
       }
-
       #route-toggle .material-icons {
         margin: 0;
       }
-
       #route-panel-header {
         display: flex;
         align-items: center;
@@ -262,11 +270,9 @@
         padding: 16px;
         border-bottom: 1px solid #e8eaed;
       }
-
       #route-panel-header h3 {
         margin: 0;
       }
-
       .close-panel {
         background: none;
         border: none;
@@ -274,26 +280,26 @@
         cursor: pointer;
         color: #5f6368;
       }
-
       .close-panel:hover {
         background: none;
         color: #1a73e8;
       }
-
       #travel-modes {
         margin: 12px 0;
       }
-
       .travel-mode-btn {
         padding: 12px;
       }
-
       #location-search {
         padding: 12px;
       }
+      #qr-code-container {
+        bottom: 80px;
+        left: 50%;
+        transform: translateX(-50%);
+      }
     }
   </style>
-  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 </head>
 <body>
   <div id="map"></div>
@@ -326,6 +332,10 @@
       <button id="startNavigation">
         <span class="material-icons">directions</span>
         Start Navigation
+      </button>
+      <button id="generateQR">
+        <span class="material-icons">qr_code</span>
+        Generate QR Code
       </button>
     </div>
   </div>
@@ -361,14 +371,24 @@
     <div id="route-details"></div>
   </div>
 
+  <div id="qr-code-container">
+    <button class="close-qr">
+      <span class="material-icons">close</span>
+    </button>
+    <h3 style="text-align: center; margin-top: 0;">Scan to Navigate</h3>
+    <div id="qr-code"></div>
+    <p style="text-align: center; font-size: 12px; margin-bottom: 0;">Share this QR code for the optimized route</p>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
   <script>
-    // Your Google Maps API key
+    // Replace with your actual API key (preferably loaded from environment variables)
     const apiKey = "AIzaSyBCN_NsTb_psU3rjRw8t7-Pn7lcKJiut8w";
 
     // Destination coordinates
     const destination = { lat: 35.27353552933397, lng: 25.46198725258581 };
 
-    // Waypoints coordinates
+    // Waypoints coordinates (must be passed in order)
     const waypoints = [
       { lat: 35.27752979377787, lng: 25.467648822116395 },
       { lat: 35.27981652933252, lng: 25.467600687173636 },
@@ -381,6 +401,7 @@
     let directionsRenderer = null;
     let currentTravelMode = 'DRIVING';
     let currentLocationMarker = null;
+    let waypointMarkers = [];
 
     // Initialize the map
     function initMap() {
@@ -432,6 +453,29 @@
         }
       });
 
+      // Add waypoint markers
+      waypoints.forEach((waypoint, index) => {
+        waypointMarkers.push(new google.maps.Marker({
+          position: waypoint,
+          map: map,
+          title: `Waypoint ${index + 1}`,
+          icon: {
+            path: google.maps.SymbolPath.CIRCLE,
+            scale: 8,
+            fillColor: "#34a853",
+            fillOpacity: 1,
+            strokeColor: "#ffffff",
+            strokeWeight: 2,
+          },
+          label: {
+            text: (index + 1).toString(),
+            color: "#ffffff",
+            fontSize: "12px",
+            fontWeight: "bold"
+          }
+        }));
+      });
+
       directionsRenderer = new google.maps.DirectionsRenderer({
         map: map,
         suppressMarkers: true,
@@ -448,6 +492,10 @@
       // Event listeners
       document.getElementById("useLocation").addEventListener("click", () => fetchUserLocation(true));
       document.getElementById("startNavigation").addEventListener("click", startNavigation);
+      document.getElementById("generateQR").addEventListener("click", generateQRCode);
+      document.querySelector(".close-qr").addEventListener("click", () => {
+        document.getElementById("qr-code-container").style.display = "none";
+      });
 
       // Travel mode listeners
       document.querySelectorAll('.travel-mode-btn').forEach(btn => {
@@ -559,6 +607,11 @@
               loadingIndicator.style.display = "none";
             }
             alert("Error getting your location: " + error.message);
+          },
+          {
+            timeout: 10000, // 10 seconds timeout
+            maximumAge: 60000, // Accept cached position up to 1 minute old
+            enableHighAccuracy: true
           }
         );
       } else {
@@ -572,6 +625,10 @@
 
     // Calculate route through waypoints
     function calculateRoute(origin) {
+      const loadingIndicator = document.getElementById("loading-indicator");
+      loadingIndicator.style.display = "block";
+      loadingIndicator.textContent = "Calculating optimized route...";
+
       const directionsService = new google.maps.DirectionsService();
 
       const request = {
@@ -579,19 +636,20 @@
         destination: destination,
         waypoints: waypoints.map(waypoint => ({
           location: waypoint,
-          stopover: false // Critical for pass-through waypoints
+          stopover: true // Changed to true to ensure passing through
         })),
         travelMode: google.maps.TravelMode[currentTravelMode],
-        optimizeWaypoints: true
+        optimizeWaypoints: false, // Critical to maintain waypoint order
+        provideRouteAlternatives: false
       };
 
       directionsService.route(request, (result, status) => {
-        const loadingIndicator = document.getElementById("loading-indicator");
         loadingIndicator.style.display = "none";
 
         if (status === google.maps.DirectionsStatus.OK) {
           directionsRenderer.setDirections(result);
           
+          // Adjust map view to show the entire route
           const bounds = new google.maps.LatLngBounds();
           result.routes[0].overview_path.forEach(path => {
             bounds.extend(path);
@@ -601,6 +659,7 @@
           displayRouteInfo(result);
         } else {
           alert("Failed to calculate route: " + status);
+          console.error("Directions request failed:", status);
         }
       });
     }
@@ -654,6 +713,7 @@
       });
 
       routeToggle.style.display = 'flex';
+      routePanel.style.display = 'block';
     }
 
     // Start navigation with continuous routing
@@ -663,23 +723,91 @@
         return;
       }
 
-      // Create a path that forces the route through all waypoints
-      const path = [
-        userLocation, 
-        ...waypoints, 
-        destination
-      ];
+      // Convert travel mode to Google Maps URL compatible string
+      let travelModeStr;
+      switch(currentTravelMode) {
+        case 'DRIVING': travelModeStr = 'driving'; break;
+        case 'WALKING': travelModeStr = 'walking'; break;
+        case 'BICYCLING': travelModeStr = 'bicycling'; break;
+        default: travelModeStr = 'driving';
+      }
 
-      // Convert path to encoded polyline
-      const encodedPath = google.maps.geometry.encoding.encodePath(
-        path.map(point => new google.maps.LatLng(point.lat, point.lng))
-      );
-
-      // Create navigation URL using the encoded path
-      const url = `https://www.google.com/maps/dir/?api=1&origin=${userLocation.lat},${userLocation.lng}&destination=${destination.lat},${destination.lng}&travelmode=${currentTravelMode.toLowerCase()}&dir_action=navigate&path=enc:${encodedPath}`;
+      // Create waypoints string
+      const waypointsStr = waypoints.map(wp => `${wp.lat},${wp.lng}`).join('|');
       
-      window.open(url, "_blank");
+      // Build the final URL with explicit waypoints
+      const url = new URL('https://www.google.com/maps/dir/');
+      url.searchParams.append('api', '1');
+      url.searchParams.append('origin', `${userLocation.lat},${userLocation.lng}`);
+      url.searchParams.append('destination', `${destination.lat},${destination.lng}`);
+      url.searchParams.append('travelmode', travelModeStr);
+      
+      // Only add waypoints if they exist
+      if (waypointsStr) {
+        url.searchParams.append('waypoints', waypointsStr);
+      }
+      
+      // Open in new tab
+      window.open(url.toString(), "_blank");
     }
+
+    // Generate QR code for the current route
+    function generateQRCode() {
+      if (!userLocation) {
+        alert("Please set a starting location first.");
+        return;
+      }
+
+      // Convert travel mode to Google Maps URL compatible string
+      let travelModeStr;
+      switch(currentTravelMode) {
+        case 'DRIVING': travelModeStr = 'driving'; break;
+        case 'WALKING': travelModeStr = 'walking'; break;
+        case 'BICYCLING': travelModeStr = 'bicycling'; break;
+        default: travelModeStr = 'driving';
+      }
+
+      // Create waypoints string
+      const waypointsStr = waypoints.map(wp => `${wp.lat},${wp.lng}`).join('|');
+      
+      // Build the final URL with explicit waypoints
+      const url = new URL('https://www.google.com/maps/dir/');
+      url.searchParams.append('api', '1');
+      url.searchParams.append('origin', `${userLocation.lat},${userLocation.lng}`);
+      url.searchParams.append('destination', `${destination.lat},${destination.lng}`);
+      url.searchParams.append('travelmode', travelModeStr);
+      
+      // Only add waypoints if they exist
+      if (waypointsStr) {
+        url.searchParams.append('waypoints', waypointsStr);
+      }
+
+      // Generate QR code
+      const qrCodeElement = document.getElementById('qr-code');
+      qrCodeElement.innerHTML = ''; // Clear previous QR code
+      
+      QRCode.toCanvas(qrCodeElement, url.toString(), {
+        width: 150,
+        margin: 2,
+        color: {
+          dark: '#1a73e8',
+          light: '#ffffff'
+        }
+      }, (error) => {
+        if (error) {
+          console.error("QR Code generation failed:", error);
+          alert("Failed to generate QR code. Please try again.");
+        } else {
+          document.getElementById('qr-code-container').style.display = 'block';
+        }
+      });
+    }
+
+    // Error handling for Google Maps API loading
+    function gm_authFailure() {
+      alert("Google Maps failed to load. Please check your API key and try again.");
+    }
+    window.gm_authFailure = gm_authFailure;
   </script>
 
   <!-- Load Google Maps API with geometry library -->
@@ -690,3 +818,4 @@
   ></script>
 </body>
 </html>
+```
