@@ -1,8 +1,3 @@
-# Complete Updated Script for Route Optimization with Waypoints
-
-Here's the complete updated HTML file with all fixes and improvements:
-
-```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -382,20 +377,19 @@ Here's the complete updated HTML file with all fixes and improvements:
 
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
   <script>
-    // Replace with your actual API key (preferably loaded from environment variables)
-    const apiKey = "AIzaSyBCN_NsTb_psU3rjRw8t7-Pn7lcKJiut8w";
+    // Configuration - Replace these values with your actual data
+    const config = {
+      apiKey: "AIzaSyBCN_NsTb_psU3rjRw8t7-Pn7lcKJiut8w", // Replace with your API key
+      destination: { lat: 35.27353552933397, lng: 25.46198725258581 },
+      waypoints: [
+        { lat: 35.27752979377787, lng: 25.467648822116395 },
+        { lat: 35.27981652933252, lng: 25.467600687173636 },
+        { lat: 35.27826354900544, lng: 25.466422280650296 },
+        { lat: 35.280698068765, lng: 25.461342669957805 }
+      ]
+    };
 
-    // Destination coordinates
-    const destination = { lat: 35.27353552933397, lng: 25.46198725258581 };
-
-    // Waypoints coordinates (must be passed in order)
-    const waypoints = [
-      { lat: 35.27752979377787, lng: 25.467648822116395 },
-      { lat: 35.27981652933252, lng: 25.467600687173636 },
-      { lat: 35.27826354900544, lng: 25.466422280650296 },
-      { lat: 35.280698068765, lng: 25.461342669957805 },
-    ];
-
+    // Map variables
     let map;
     let userLocation = null;
     let directionsRenderer = null;
@@ -407,7 +401,7 @@ Here's the complete updated HTML file with all fixes and improvements:
     function initMap() {
       const mapOptions = {
         zoom: 14,
-        center: destination,
+        center: config.destination,
         zoomControl: false,
         mapTypeControl: true,
         mapTypeControlOptions: {
@@ -421,26 +415,14 @@ Here's the complete updated HTML file with all fixes and improvements:
         fullscreenControl: true,
         fullscreenControlOptions: {
           position: google.maps.ControlPosition.RIGHT_TOP
-        },
-        styles: [
-          {
-            featureType: "poi",
-            elementType: "labels",
-            stylers: [{ visibility: "on" }]
-          },
-          {
-            featureType: "transit",
-            elementType: "labels",
-            stylers: [{ visibility: "on" }]
-          }
-        ]
+        }
       };
 
       map = new google.maps.Map(document.getElementById("map"), mapOptions);
 
       // Add destination marker
       new google.maps.Marker({
-        position: destination,
+        position: config.destination,
         map: map,
         title: "Destination",
         icon: {
@@ -454,7 +436,7 @@ Here's the complete updated HTML file with all fixes and improvements:
       });
 
       // Add waypoint markers
-      waypoints.forEach((waypoint, index) => {
+      config.waypoints.forEach((waypoint, index) => {
         waypointMarkers.push(new google.maps.Marker({
           position: waypoint,
           map: map,
@@ -633,13 +615,13 @@ Here's the complete updated HTML file with all fixes and improvements:
 
       const request = {
         origin: origin,
-        destination: destination,
-        waypoints: waypoints.map(waypoint => ({
+        destination: config.destination,
+        waypoints: config.waypoints.map(waypoint => ({
           location: waypoint,
-          stopover: true // Changed to true to ensure passing through
+          stopover: true // Ensures passing through each waypoint
         })),
         travelMode: google.maps.TravelMode[currentTravelMode],
-        optimizeWaypoints: false, // Critical to maintain waypoint order
+        optimizeWaypoints: false, // Maintains your specified order
         provideRouteAlternatives: false
       };
 
@@ -733,13 +715,13 @@ Here's the complete updated HTML file with all fixes and improvements:
       }
 
       // Create waypoints string
-      const waypointsStr = waypoints.map(wp => `${wp.lat},${wp.lng}`).join('|');
+      const waypointsStr = config.waypoints.map(wp => `${wp.lat},${wp.lng}`).join('|');
       
       // Build the final URL with explicit waypoints
       const url = new URL('https://www.google.com/maps/dir/');
       url.searchParams.append('api', '1');
       url.searchParams.append('origin', `${userLocation.lat},${userLocation.lng}`);
-      url.searchParams.append('destination', `${destination.lat},${destination.lng}`);
+      url.searchParams.append('destination', `${config.destination.lat},${config.destination.lng}`);
       url.searchParams.append('travelmode', travelModeStr);
       
       // Only add waypoints if they exist
@@ -768,13 +750,13 @@ Here's the complete updated HTML file with all fixes and improvements:
       }
 
       // Create waypoints string
-      const waypointsStr = waypoints.map(wp => `${wp.lat},${wp.lng}`).join('|');
+      const waypointsStr = config.waypoints.map(wp => `${wp.lat},${wp.lng}`).join('|');
       
       // Build the final URL with explicit waypoints
       const url = new URL('https://www.google.com/maps/dir/');
       url.searchParams.append('api', '1');
       url.searchParams.append('origin', `${userLocation.lat},${userLocation.lng}`);
-      url.searchParams.append('destination', `${destination.lat},${destination.lng}`);
+      url.searchParams.append('destination', `${config.destination.lat},${config.destination.lng}`);
       url.searchParams.append('travelmode', travelModeStr);
       
       // Only add waypoints if they exist
@@ -806,11 +788,12 @@ Here's the complete updated HTML file with all fixes and improvements:
     // Error handling for Google Maps API loading
     function gm_authFailure() {
       alert("Google Maps failed to load. Please check your API key and try again.");
+      document.getElementById("loading-indicator").style.display = "none";
     }
     window.gm_authFailure = gm_authFailure;
   </script>
 
-  <!-- Load Google Maps API with geometry library -->
+  <!-- Load Google Maps API with your key -->
   <script
     async
     defer
@@ -818,4 +801,3 @@ Here's the complete updated HTML file with all fixes and improvements:
   ></script>
 </body>
 </html>
-```
