@@ -192,30 +192,6 @@
       margin-top: 4px;
       box-shadow: 0 2px 4px rgba(0,0,0,0.2);
     }
-    #qr-code-container {
-      display: none;
-      position: fixed;
-      bottom: 20px;
-      left: 20px;
-      background: white;
-      padding: 16px;
-      border-radius: 8px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-      z-index: 2;
-    }
-    #qr-code {
-      width: 150px;
-      height: 150px;
-      margin: 0 auto;
-    }
-    .close-qr {
-      position: absolute;
-      top: 4px;
-      right: 4px;
-      background: none;
-      border: none;
-      cursor: pointer;
-    }
     @media (max-width: 768px) {
       #controls {
         left: 50%;
@@ -288,11 +264,6 @@
       #location-search {
         padding: 12px;
       }
-      #qr-code-container {
-        bottom: 80px;
-        left: 50%;
-        transform: translateX(-50%);
-      }
     }
   </style>
 </head>
@@ -328,10 +299,6 @@
         <span class="material-icons">directions</span>
         Start Navigation
       </button>
-      <button id="generateQR">
-        <span class="material-icons">qr_code</span>
-        Generate QR Code
-      </button>
     </div>
   </div>
   
@@ -366,16 +333,6 @@
     <div id="route-details"></div>
   </div>
 
-  <div id="qr-code-container">
-    <button class="close-qr">
-      <span class="material-icons">close</span>
-    </button>
-    <h3 style="text-align: center; margin-top: 0;">Scan to Navigate</h3>
-    <div id="qr-code"></div>
-    <p style="text-align: center; font-size: 12px; margin-bottom: 0;">Share this QR code for the optimized route</p>
-  </div>
-
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
   <script>
     // Configuration - Replace these values with your actual data
     const config = {
@@ -420,6 +377,18 @@
 
       map = new google.maps.Map(document.getElementById("map"), mapOptions);
 
+      // Initialize directions renderer with consistent styling
+      directionsRenderer = new google.maps.DirectionsRenderer({
+        map: map,
+        suppressMarkers: true,
+        polylineOptions: {
+          strokeColor: "#1a73e8",
+          strokeWeight: 5,
+          strokeOpacity: 0.8
+        },
+        suppressPolylines: false
+      });
+
       // Add destination marker
       new google.maps.Marker({
         position: config.destination,
@@ -458,26 +427,12 @@
         }));
       });
 
-      directionsRenderer = new google.maps.DirectionsRenderer({
-        map: map,
-        suppressMarkers: true,
-        polylineOptions: {
-          strokeColor: "#1a73e8",
-          strokeWeight: 5,
-          strokeOpacity: 0.8
-        }
-      });
-
       // Try to get user's location by default
       fetchUserLocation(false);
 
       // Event listeners
       document.getElementById("useLocation").addEventListener("click", () => fetchUserLocation(true));
       document.getElementById("startNavigation").addEventListener("click", startNavigation);
-      document.getElementById("generateQR").addEventListener("click", generateQRCode);
-      document.querySelector(".close-qr").addEventListener("click", () => {
-        document.getElementById("qr-code-container").style.display = "none";
-      });
 
       // Travel mode listeners
       document.querySelectorAll('.travel-mode-btn').forEach(btn => {
@@ -622,13 +577,22 @@
         })),
         travelMode: google.maps.TravelMode[currentTravelMode],
         optimizeWaypoints: false, // Maintains your specified order
-        provideRouteAlternatives: false
+        provideRouteAlternatives: false // Prevents multiple route suggestions
       };
 
       directionsService.route(request, (result, status) => {
         loadingIndicator.style.display = "none";
 
         if (status === google.maps.DirectionsStatus.OK) {
+          // Ensure consistent styling
+          directionsRenderer.setOptions({
+            polylineOptions: {
+              strokeColor: "#1a73e8",
+              strokeWeight: 5,
+              strokeOpacity: 0.8
+            }
+          });
+          
           directionsRenderer.setDirections(result);
           
           // Adjust map view to show the entire route
@@ -731,58 +695,6 @@
       
       // Open in new tab
       window.open(url.toString(), "_blank");
-    }
-
-    // Generate QR code for the current route
-    function generateQRCode() {
-      if (!userLocation) {
-        alert("Please set a starting location first.");
-        return;
-      }
-
-      // Convert travel mode to Google Maps URL compatible string
-      let travelModeStr;
-      switch(currentTravelMode) {
-        case 'DRIVING': travelModeStr = 'driving'; break;
-        case 'WALKING': travelModeStr = 'walking'; break;
-        case 'BICYCLING': travelModeStr = 'bicycling'; break;
-        default: travelModeStr = 'driving';
-      }
-
-      // Create waypoints string
-      const waypointsStr = config.waypoints.map(wp => `${wp.lat},${wp.lng}`).join('|');
-      
-      // Build the final URL with explicit waypoints
-      const url = new URL('https://www.google.com/maps/dir/');
-      url.searchParams.append('api', '1');
-      url.searchParams.append('origin', `${userLocation.lat},${userLocation.lng}`);
-      url.searchParams.append('destination', `${config.destination.lat},${config.destination.lng}`);
-      url.searchParams.append('travelmode', travelModeStr);
-      
-      // Only add waypoints if they exist
-      if (waypointsStr) {
-        url.searchParams.append('waypoints', waypointsStr);
-      }
-
-      // Generate QR code
-      const qrCodeElement = document.getElementById('qr-code');
-      qrCodeElement.innerHTML = ''; // Clear previous QR code
-      
-      QRCode.toCanvas(qrCodeElement, url.toString(), {
-        width: 150,
-        margin: 2,
-        color: {
-          dark: '#1a73e8',
-          light: '#ffffff'
-        }
-      }, (error) => {
-        if (error) {
-          console.error("QR Code generation failed:", error);
-          alert("Failed to generate QR code. Please try again.");
-        } else {
-          document.getElementById('qr-code-container').style.display = 'block';
-        }
-      });
     }
 
     // Error handling for Google Maps API loading
