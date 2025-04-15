@@ -369,7 +369,6 @@
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
   <script>
     // Configuration
     const config = {
@@ -388,7 +387,7 @@
     let currentTravelMode = 'car';
     let currentLocationMarker = null;
     let waypointMarkers = [];
-    let routeControl = null;
+    let routeLayer = null;
 
     // Initialize the map
     function initMap() {
@@ -517,92 +516,11 @@
       loadingIndicator.textContent = "Calculating route...";
 
       // Remove existing route if any
-      if (routeControl) {
-        map.removeControl(routeControl);
+      if (routeLayer) {
+        map.removeLayer(routeLayer);
       }
 
-      // Create waypoints array
-      const waypoints = [
-        L.latLng(origin.lat, origin.lng),
-        ...config.waypoints.map(wp => L.latLng(wp.lat, wp.lng)),
-        L.latLng(config.destination.lat, config.destination.lng)
-      ];
-
-      // Initialize routing control
-      routeControl = L.Routing.control({
-        waypoints: waypoints,
-        routeWhileDragging: true,
-        show: false,
-        addWaypoints: false,
-        draggableWaypoints: false,
-        fitSelectedRoutes: true,
-        lineOptions: {
-          styles: [{ color: '#1a73e8', opacity: 0.8, weight: 5 }]
-        },
-        createMarker: function() { return null; }
-      }).addTo(map);
-
-      // Listen for route calculation
-      routeControl.on('routesfound', function(e) {
-        loadingIndicator.style.display = "none";
-        const routes = e.routes;
-        const route = routes[0];
-        
-        displayRouteInfo(route);
-      });
-
-      routeControl.on('routingerror', function(e) {
-        loadingIndicator.style.display = "none";
-        alert("Failed to calculate route: " + e.error.message);
-      });
-    }
-
-    // Display route information
-    function displayRouteInfo(route) {
-      const routePanel = document.getElementById("route-panel");
-      const routeDetails = document.getElementById("route-details");
-      const totalDistance = document.getElementById("total-distance");
-      const totalDuration = document.getElementById("total-duration");
-      const routeToggle = document.getElementById("route-toggle");
-
-      const distance = (route.summary.totalDistance / 1000).toFixed(1);
-      const duration = Math.round(route.summary.totalTime / 60);
-
-      totalDistance.innerHTML = `<strong>Total Distance:</strong> ${distance} km`;
-      totalDuration.innerHTML = `<strong>Estimated Time:</strong> ${duration} min`;
-
-      routeDetails.innerHTML = '';
-      route.instructions.forEach(instruction => {
-        const stepDiv = document.createElement('div');
-        stepDiv.className = 'route-step';
-        
-        let icon = 'arrow_forward';
-        if (instruction.type.includes('left')) icon = 'turn_left';
-        if (instruction.type.includes('right')) icon = 'turn_right';
-        if (instruction.type.includes('uturn')) icon = 'u_turn_left';
-
-        stepDiv.innerHTML = `
-          <span class="material-icons step-icon">${icon}</span>
-          <div>
-            <div>${instruction.text}</div>
-            <div class="step-distance">${instruction.distance} m</div>
-          </div>
-        `;
-        routeDetails.appendChild(stepDiv);
-      });
-
-      routeToggle.style.display = 'flex';
-      routePanel.style.display = 'block';
-    }
-
-    // Start navigation
-    function startNavigation() {
-      if (!userLocation) {
-        alert("Please set a starting location first.");
-        return;
-      }
-
-      // Convert travel mode to OSM routing service compatible string
+      // Convert travel mode to OSRM routing service compatible string
       let profile;
       switch(currentTravelMode) {
         case 'car': profile = 'driving'; break;
@@ -613,7 +531,7 @@
 
       // Create coordinates array for the route
       const coordinates = [
-        [userLocation.lng, userLocation.lat],
+        [origin.lng, origin.lat],
         ...config.waypoints.map(wp => [wp.lng, wp.lat]),
         [config.destination.lng, config.destination.lat]
       ];
@@ -621,13 +539,18 @@
       // Format coordinates for the API request
       const coordinatesStr = coordinates.map(coord => coord.join(',')).join(';');
 
-      // Make request to OSM routing service with steps=true to get turn-by-turn instructions
+      // Make request to OSRM routing service
       fetch(`https://router.project-osrm.org/route/v1/${profile}/${coordinatesStr}?overview=full&geometries=geojson&steps=true`)
-        .then(response => response.json())
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          return response.json();
+        })
         .then(data => {
           if (data.code === 'Ok') {
             // Create a GeoJSON layer for the route
-            const routeLayer = L.geoJSON(data.routes[0].geometry, {
+            routeLayer = L.geoJSON(data.routes[0].geometry, {
               style: {
                 color: '#1a73e8',
                 weight: 5,
@@ -690,13 +613,25 @@
             // Start voice navigation
             startVoiceNavigation(data.routes[0].legs);
           } else {
-            alert("Failed to calculate route: " + data.message);
+            throw new Error(data.message || "Failed to calculate route");
           }
         })
         .catch(error => {
           console.error("Error:", error);
-          alert("Failed to calculate route. Please try again.");
+          alert("Failed to calculate route. Please try again later. Error: " + error.message);
+        })
+        .finally(() => {
+          loadingIndicator.style.display = "none";
         });
+    }
+
+    // Start navigation
+    function startNavigation() {
+      if (!userLocation) {
+        alert("Please set a starting location first.");
+        return;
+      }
+      calculateRoute(userLocation);
     }
 
     // Voice navigation
