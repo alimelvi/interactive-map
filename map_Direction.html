@@ -1,780 +1,102 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Optimized Route Navigation</title>
-  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <title>Fixed Route Navigation</title>
   <style>
+    #map {
+      height: 80vh;
+      width: 100%;
+    }
     body {
-      font-family: 'Roboto', Arial, sans-serif;
+      font-family: sans-serif;
       margin: 0;
       padding: 0;
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
-      color: #3c4043;
-      position: relative;
-    }
-    #map {
-      flex: 1;
-      width: 100%;
-      position: relative;
-      z-index: 1;
     }
     #controls {
-      position: fixed;
-      top: 10px;
-      left: 10px;
-      padding: 12px;
-      background: white;
-      border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-      z-index: 1000;
-      min-width: 250px;
-      display: block !important;
-    }
-    #coordinates {
-      margin-bottom: 12px;
-      font-size: 13px;
-      color: #5f6368;
-      padding: 8px 0;
-      border-bottom: 1px solid #e8eaed;
-    }
-    .button-container {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
+      padding: 10px;
+      text-align: center;
     }
     button {
-      padding: 8px 16px;
-      font-size: 14px;
-      font-weight: 500;
-      background-color: #1a73e8;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      transition: background-color 0.2s;
-      width: 100%;
-      text-align: center;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-    }
-    button:hover {
-      background-color: #1557b0;
-    }
-    button:active {
-      background-color: #174ea6;
-    }
-    .map-control {
-      position: fixed;
-      right: 10px;
-      background: white;
+      padding: 10px 20px;
+      font-size: 16px;
       border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-      overflow: hidden;
-      z-index: 1000;
-    }
-    #zoom-controls {
-      top: 10px;
-      display: flex;
-      flex-direction: column;
-    }
-    .zoom-button {
-      padding: 8px;
-      font-size: 18px;
-      background: white;
       border: none;
-      border-bottom: 1px solid #e8eaed;
-      cursor: pointer;
-      width: 40px;
-      height: 40px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .zoom-button:last-child {
-      border-bottom: none;
-    }
-    .zoom-button:hover {
-      background-color: #f8f9fa;
-    }
-    #loading-indicator {
-      display: none;
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background: white;
-      padding: 16px 24px;
-      border-radius: 24px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-      z-index: 2;
-    }
-    .material-icons {
-      font-family: 'Material Icons';
-      font-size: 20px;
-      margin-right: 4px;
-    }
-    #route-panel {
-      position: fixed;
-      right: 10px;
-      top: 100px;
-      width: 300px;
-      background: white;
-      border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-      z-index: 1000;
-      max-height: 60vh;
-      overflow-y: auto;
-      display: none;
-    }
-    #route-summary {
-      padding: 16px;
-      border-bottom: 1px solid #e8eaed;
-    }
-    #route-details {
-      padding: 16px;
-    }
-    .route-step {
-      display: flex;
-      align-items: flex-start;
-      gap: 12px;
-      margin-bottom: 12px;
-      font-size: 13px;
-      color: #3c4043;
-    }
-    .step-icon {
-      color: #1a73e8;
-      flex-shrink: 0;
-    }
-    .step-distance {
-      color: #5f6368;
-      font-size: 12px;
-      margin-top: 4px;
-    }
-    #travel-modes {
-      display: flex;
-      gap: 8px;
-      margin: 8px 0;
-      justify-content: center;
-    }
-    .travel-mode-btn {
-      flex: 1;
-      padding: 8px;
-      background: #f8f9fa;
-      color: #3c4043;
-    }
-    .travel-mode-btn.active {
-      background: #1a73e8;
+      background-color: #4285F4;
       color: white;
-    }
-    .travel-mode-btn:hover:not(.active) {
-      background: #e8eaed;
-    }
-    #search-box {
-      margin-bottom: 12px;
-    }
-    #location-search {
-      width: 100%;
-      padding: 8px 12px;
-      border: 1px solid #e8eaed;
-      border-radius: 4px;
-      font-size: 14px;
-      box-sizing: border-box;
-    }
-    #location-search:focus {
-      outline: none;
-      border-color: #1a73e8;
-    }
-    .pac-container {
-      border-radius: 4px;
-      margin-top: 4px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-    }
-    #route-toggle {
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
-      width: 50px;
-      height: 50px;
-      border-radius: 50%;
-      background: #1a73e8;
-      color: white;
-      border: none;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-      z-index: 1000;
-      display: flex;
-      align-items: center;
-      justify-content: center;
       cursor: pointer;
-    }
-    #route-toggle .material-icons {
-      font-size: 24px;
-      margin: 0;
-    }
-    .leaflet-control-container {
-      z-index: 1000 !important;
-    }
-    .leaflet-top {
-      z-index: 1000 !important;
-    }
-    .leaflet-bottom {
-      z-index: 1000 !important;
-    }
-    @media (max-width: 768px) {
-      #controls {
-        left: 50%;
-        transform: translateX(-50%);
-        width: calc(100% - 32px);
-        max-width: 400px;
-      }
-      #zoom-controls {
-        bottom: 100px;
-        top: auto;
-      }
-      #route-panel {
-        position: fixed;
-        right: 0;
-        top: auto;
-        bottom: 0;
-        width: 100%;
-        max-height: 50vh;
-        border-radius: 12px 12px 0 0;
-        transform: translateY(100%);
-        transition: transform 0.3s ease-in-out;
-      }
-      #route-panel.open {
-        transform: translateY(0);
-      }
-      #route-toggle {
-        position: fixed;
-        bottom: 20px;
-        right: 20px;
-        width: auto;
-        padding: 12px;
-        border-radius: 50%;
-        aspect-ratio: 1;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-        z-index: 2;
-      }
-      #route-toggle .material-icons {
-        margin: 0;
-      }
-      #route-panel-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 16px;
-        border-bottom: 1px solid #e8eaed;
-      }
-      #route-panel-header h3 {
-        margin: 0;
-      }
-      .close-panel {
-        background: none;
-        border: none;
-        padding: 8px;
-        cursor: pointer;
-        color: #5f6368;
-      }
-      .close-panel:hover {
-        background: none;
-        color: #1a73e8;
-      }
-      #travel-modes {
-        margin: 12px 0;
-      }
-      .travel-mode-btn {
-        padding: 12px;
-      }
-      #location-search {
-        padding: 12px;
-      }
     }
   </style>
 </head>
 <body>
   <div id="map"></div>
   <div id="controls">
-    <div id="search-box">
-      <input 
-        id="location-search" 
-        type="text" 
-        placeholder="Enter a starting location"
-        autocomplete="off"
-      >
-    </div>
-    <div id="coordinates">Current Location: Fetching...</div>
-    <div class="button-container">
-      <button id="useLocation">
-        <span class="material-icons">my_location</span>
-        Use Current Location
-      </button>
-      <div id="travel-modes">
-        <button class="travel-mode-btn active" data-mode="car">
-          <span class="material-icons">directions_car</span>
-        </button>
-        <button class="travel-mode-btn" data-mode="foot">
-          <span class="material-icons">directions_walk</span>
-        </button>
-        <button class="travel-mode-btn" data-mode="bike">
-          <span class="material-icons">directions_bike</span>
-        </button>
-      </div>
-      <button id="startNavigation">
-        <span class="material-icons">directions</span>
-        Start Navigation
-      </button>
-    </div>
-  </div>
-  
-  <div id="zoom-controls" class="map-control">
-    <button class="zoom-button" onclick="map.zoomIn()">
-      <span class="material-icons">add</span>
-    </button>
-    <button class="zoom-button" onclick="map.zoomOut()">
-      <span class="material-icons">remove</span>
-    </button>
+    <button id="navigateBtn">Start Navigation</button>
   </div>
 
-  <div id="loading-indicator">
-    Calculating route...
-  </div>
-
-  <button id="route-toggle" style="display: none;">
-    <span class="material-icons">info</span>
-  </button>
-
-  <div id="route-panel">
-    <div id="route-panel-header">
-      <h3>Route Information</h3>
-      <button class="close-panel">
-        <span class="material-icons">close</span>
-      </button>
-    </div>
-    <div id="route-summary">
-      <div id="total-distance"></div>
-      <div id="total-duration"></div>
-    </div>
-    <div id="route-details"></div>
-  </div>
-
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBCN_NsTb_psU3rjRw8t7-Pn7lcKJiut8w"></script>
   <script>
-    // Configuration
-    const config = {
-      destination: { lat: 35.27353552933397, lng: 25.46198725258581 },
-      waypoints: [
-        { lat: 35.27752979377787, lng: 25.467648822116395 },
-        { lat: 35.27981652933252, lng: 25.467600687173636 },
-        { lat: 35.27826354900544, lng: 25.466422280650296 },
-        { lat: 35.280698068765, lng: 25.461342669957805 }
-      ]
-    };
+    let map, directionsService, directionsRenderer, userLocation;
 
-    // Map variables
-    let map;
-    let userLocation = null;
-    let currentTravelMode = 'car';
-    let currentLocationMarker = null;
-    let waypointMarkers = [];
-    let routeLayer = null;
+    // Replace these with your actual points
+    const waypoints = [
+      { lat: 36.675887, lng: 74.841797 }, // Point A
+      { lat: 36.673843, lng: 74.841007 }, // Point B
+      //{ lat: 35.27826354900544, lng: 25.466422280650296 }, // Point C
+      //{ lat: 35.280698068765, lng: 25.461342669957805 }, // Point D
+    ];
 
-    // Navigation variables
-    let navigationInterval = null;
-    let currentRoute = null;
-    let currentStepIndex = 0;
-    let currentLegIndex = 0;
-    let lastKnownPosition = null;
+    const finalDestination = { lat: 36.67363924263815, lng: 74.84073297531174 };
 
-    // Initialize the map
     function initMap() {
-      map = L.map('map').setView([config.destination.lat, config.destination.lng], 14);
+      directionsService = new google.maps.DirectionsService();
+      directionsRenderer = new google.maps.DirectionsRenderer();
 
-      // Add OpenStreetMap tile layer
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors'
-      }).addTo(map);
-
-      // Add destination marker
-      L.marker([config.destination.lat, config.destination.lng], {
-        title: "Destination"
-      }).addTo(map);
-
-      // Add waypoint markers
-      config.waypoints.forEach((waypoint, index) => {
-        const marker = L.marker([waypoint.lat, waypoint.lng], {
-          title: `Waypoint ${index + 1}`
-        }).addTo(map);
-        waypointMarkers.push(marker);
+      map = new google.maps.Map(document.getElementById('map'), {
+        zoom: 13,
+        center: { lat: 35.278, lng: 25.466 }
       });
 
-      // Try to get user's location by default
-      fetchUserLocation(false);
+      directionsRenderer.setMap(map);
 
-      // Event listeners
-      document.getElementById("useLocation").addEventListener("click", () => fetchUserLocation(true));
-      document.getElementById("startNavigation").addEventListener("click", startNavigation);
-
-      // Travel mode listeners
-      document.querySelectorAll('.travel-mode-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          document.querySelectorAll('.travel-mode-btn').forEach(b => b.classList.remove('active'));
-          btn.classList.add('active');
-          currentTravelMode = btn.dataset.mode;
-          if (userLocation) {
-            calculateRoute(userLocation);
-          }
-        });
-      });
-
-      // Route panel toggle
-      const routeToggle = document.getElementById('route-toggle');
-      const routePanel = document.getElementById('route-panel');
-      const closePanel = document.querySelector('.close-panel');
-
-      routeToggle.addEventListener('click', () => {
-        routePanel.classList.add('open');
-        routeToggle.style.display = 'none';
-      });
-
-      closePanel.addEventListener('click', () => {
-        routePanel.classList.remove('open');
-        routeToggle.style.display = 'flex';
-      });
-    }
-
-    // Update starting location marker
-    function updateStartingLocationMarker(location) {
-      if (currentLocationMarker) {
-        map.removeLayer(currentLocationMarker);
-      }
-
-      currentLocationMarker = L.marker([location.lat, location.lng], {
-        title: "Starting Location"
-      }).addTo(map);
-    }
-
-    // Get user's current location
-    function fetchUserLocation(showLoadingIndicator) {
-      if (showLoadingIndicator) {
-        const loadingIndicator = document.getElementById("loading-indicator");
-        loadingIndicator.style.display = "block";
-        loadingIndicator.textContent = "Getting your location...";
-      }
-
+      // Get user location
       if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            userLocation = {
-              lat: position.coords.latitude,
-              lng: position.coords.longitude
-            };
+        navigator.geolocation.getCurrentPosition((position) => {
+          userLocation = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          };
 
-            document.getElementById("coordinates").textContent =
-              `Starting Point: Current Location`;
-            
-            document.getElementById("location-search").value = '';
-
-            updateStartingLocationMarker(userLocation);
-
-            if (showLoadingIndicator) {
-              const loadingIndicator = document.getElementById("loading-indicator");
-              loadingIndicator.textContent = "Calculating route...";
-            }
-            
-            calculateRoute(userLocation);
-          },
-          (error) => {
-            if (showLoadingIndicator) {
-              const loadingIndicator = document.getElementById("loading-indicator");
-              loadingIndicator.style.display = "none";
-            }
-            alert("Error getting your location: " + error.message);
-          },
-          {
-            timeout: 10000,
-            maximumAge: 60000,
-            enableHighAccuracy: true
-          }
-        );
+          calculateAndDisplayRoute();
+        }, () => {
+          alert("Could not get your location");
+        });
       } else {
-        if (showLoadingIndicator) {
-          const loadingIndicator = document.getElementById("loading-indicator");
-          loadingIndicator.style.display = "none";
+        alert("Geolocation not supported by this browser.");
+      }
+    }
+
+    function calculateAndDisplayRoute() {
+      directionsService.route({
+        origin: userLocation,
+        destination: finalDestination,
+        waypoints: waypoints.map(point => ({ location: point })),
+        optimizeWaypoints: false,
+        travelMode: google.maps.TravelMode.DRIVING
+      }, function(response, status) {
+        if (status === 'OK') {
+          directionsRenderer.setDirections(response);
+        } else {
+          alert('Directions request failed due to ' + status);
         }
-        alert("Geolocation is not supported by your browser.");
-      }
+      });
     }
 
-    // Start navigation
-    function startNavigation() {
-      if (!userLocation) {
-        alert("Please set a starting location first.");
-        return;
-      }
+    document.getElementById('navigateBtn').addEventListener('click', () => {
+      const waypointString = waypoints.map(p => `${p.lat},${p.lng}`).join('|');
+      const navUrl = `https://www.google.com/maps/dir/?api=1&origin=${userLocation.lat},${userLocation.lng}&destination=${finalDestination.lat},${finalDestination.lng}&waypoints=${waypointString}&travelmode=driving`;
+      window.open(navUrl, '_blank');
+    });
 
-      // Stop any existing navigation
-      stopNavigation();
-
-      // Calculate initial route
-      calculateRoute(userLocation, true);
-    }
-
-    // Stop navigation
-    function stopNavigation() {
-      if (navigationInterval) {
-        clearInterval(navigationInterval);
-        navigationInterval = null;
-      }
-      currentRoute = null;
-      currentStepIndex = 0;
-      currentLegIndex = 0;
-      lastKnownPosition = null;
-    }
-
-    // Calculate route through waypoints
-    function calculateRoute(origin, startNavigationAfter = false) {
-      const loadingIndicator = document.getElementById("loading-indicator");
-      loadingIndicator.style.display = "block";
-      loadingIndicator.textContent = "Calculating route...";
-
-      // Remove existing route if any
-      if (routeLayer) {
-        map.removeLayer(routeLayer);
-      }
-
-      // Convert travel mode to OSRM routing service compatible string
-      let profile;
-      switch(currentTravelMode) {
-        case 'car': profile = 'driving'; break;
-        case 'foot': profile = 'foot'; break;
-        case 'bike': profile = 'cycling'; break;
-        default: profile = 'driving';
-      }
-
-      // Create coordinates array for the route
-      const coordinates = [
-        [origin.lng, origin.lat],
-        ...config.waypoints.map(wp => [wp.lng, wp.lat]),
-        [config.destination.lng, config.destination.lat]
-      ];
-
-      // Format coordinates for the API request
-      const coordinatesStr = coordinates.map(coord => coord.join(',')).join(';');
-
-      // Make request to OSRM routing service
-      fetch(`https://router.project-osrm.org/route/v1/${profile}/${coordinatesStr}?overview=full&geometries=geojson&steps=true`)
-        .then(response => {
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
-          return response.json();
-        })
-        .then(data => {
-          if (data.code === 'Ok') {
-            currentRoute = data.routes[0];
-            
-            // Create a GeoJSON layer for the route
-            routeLayer = L.geoJSON(data.routes[0].geometry, {
-              style: {
-                color: '#1a73e8',
-                weight: 5,
-                opacity: 0.8
-              }
-            }).addTo(map);
-
-            // Fit map to show the entire route
-            map.fitBounds(routeLayer.getBounds(), { padding: [50, 50] });
-
-            // Display route information
-            const distance = (data.routes[0].distance / 1000).toFixed(1);
-            const duration = Math.round(data.routes[0].duration / 60);
-            
-            document.getElementById("total-distance").innerHTML = 
-              `<strong>Total Distance:</strong> ${distance} km`;
-            document.getElementById("total-duration").innerHTML = 
-              `<strong>Estimated Time:</strong> ${duration} min`;
-
-            // Display turn-by-turn instructions
-            const routeDetails = document.getElementById("route-details");
-            routeDetails.innerHTML = '';
-            
-            data.routes[0].legs.forEach((leg, legIndex) => {
-              leg.steps.forEach((step, stepIndex) => {
-                const stepDiv = document.createElement('div');
-                stepDiv.className = 'route-step';
-                
-                let icon = 'arrow_forward';
-                if (step.maneuver.modifier) {
-                  switch(step.maneuver.modifier) {
-                    case 'left': icon = 'turn_left'; break;
-                    case 'right': icon = 'turn_right'; break;
-                    case 'sharp left': icon = 'turn_sharp_left'; break;
-                    case 'sharp right': icon = 'turn_sharp_right'; break;
-                    case 'slight left': icon = 'turn_slight_left'; break;
-                    case 'slight right': icon = 'turn_slight_right'; break;
-                    case 'uturn': icon = 'u_turn_left'; break;
-                  }
-                }
-
-                const distance = (step.distance / 1000).toFixed(1);
-                const instruction = step.maneuver.instruction;
-                
-                stepDiv.innerHTML = `
-                  <span class="material-icons step-icon">${icon}</span>
-                  <div>
-                    <div>${instruction}</div>
-                    <div class="step-distance">${distance} km</div>
-                  </div>
-                `;
-                routeDetails.appendChild(stepDiv);
-              });
-            });
-
-            // Show route panel
-            document.getElementById("route-panel").style.display = "block";
-            document.getElementById("route-toggle").style.display = "flex";
-
-            if (startNavigationAfter) {
-              startRealTimeNavigation();
-            }
-          } else {
-            throw new Error(data.message || "Failed to calculate route");
-          }
-        })
-        .catch(error => {
-          console.error("Error:", error);
-          alert("Failed to calculate route. Please try again later. Error: " + error.message);
-        })
-        .finally(() => {
-          loadingIndicator.style.display = "none";
-        });
-    }
-
-    // Start real-time navigation
-    function startRealTimeNavigation() {
-      if (!currentRoute) return;
-
-      // Start tracking user's position
-      if (navigator.geolocation) {
-        navigationInterval = setInterval(() => {
-          navigator.geolocation.getCurrentPosition(
-            (position) => {
-              const currentPosition = {
-                lat: position.coords.latitude,
-                lng: position.coords.longitude
-              };
-
-              // Update user's position marker
-              updateStartingLocationMarker(currentPosition);
-
-              // Check if we need to update the route
-              if (lastKnownPosition) {
-                const distanceFromLastPosition = calculateDistance(
-                  lastKnownPosition.lat,
-                  lastKnownPosition.lng,
-                  currentPosition.lat,
-                  currentPosition.lng
-                );
-
-                // If user has moved significantly, recalculate route
-                if (distanceFromLastPosition > 0.1) { // 100 meters
-                  calculateRoute(currentPosition, true);
-                }
-              }
-
-              lastKnownPosition = currentPosition;
-
-              // Update current step based on position
-              updateCurrentStep(currentPosition);
-            },
-            (error) => {
-              console.error("Error getting position:", error);
-            },
-            {
-              enableHighAccuracy: true,
-              timeout: 5000,
-              maximumAge: 0
-            }
-          );
-        }, 5000); // Check position every 5 seconds
-      }
-    }
-
-    // Update current step based on position
-    function updateCurrentStep(position) {
-      if (!currentRoute) return;
-
-      const currentLeg = currentRoute.legs[currentLegIndex];
-      if (!currentLeg) return;
-
-      const currentStep = currentLeg.steps[currentStepIndex];
-      if (!currentStep) return;
-
-      // Calculate distance to next step
-      const distanceToNextStep = calculateDistance(
-        position.lat,
-        position.lng,
-        currentStep.maneuver.location[1],
-        currentStep.maneuver.location[0]
-      );
-
-      // If we're close to the next step, move to it
-      if (distanceToNextStep < 0.05) { // 50 meters
-        currentStepIndex++;
-        
-        // If we've completed all steps in this leg
-        if (currentStepIndex >= currentLeg.steps.length) {
-          currentStepIndex = 0;
-          currentLegIndex++;
-          
-          // If we've completed all legs
-          if (currentLegIndex >= currentRoute.legs.length) {
-            stopNavigation();
-            alert("You have reached your destination!");
-            return;
-          }
-        }
-
-        // Speak the next instruction
-        const nextStep = currentRoute.legs[currentLegIndex].steps[currentStepIndex];
-        if (nextStep) {
-          const utterance = new SpeechSynthesisUtterance(nextStep.maneuver.instruction);
-          utterance.rate = 1.0;
-          utterance.pitch = 1.0;
-          window.speechSynthesis.speak(utterance);
-        }
-      }
-    }
-
-    // Calculate distance between two points in kilometers
-    function calculateDistance(lat1, lon1, lat2, lon2) {
-      const R = 6371; // Radius of the earth in km
-      const dLat = deg2rad(lat2 - lat1);
-      const dLon = deg2rad(lon2 - lon1);
-      const a = 
-        Math.sin(dLat/2) * Math.sin(dLat/2) +
-        Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * 
-        Math.sin(dLon/2) * Math.sin(dLon/2); 
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
-      return R * c;
-    }
-
-    function deg2rad(deg) {
-      return deg * (Math.PI/180);
-    }
-
-    // Initialize the map when the page loads
     window.onload = initMap;
   </script>
 </body>
