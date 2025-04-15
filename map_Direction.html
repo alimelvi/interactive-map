@@ -6,6 +6,7 @@
   <title>Optimized Route Navigation</title>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
     body {
       font-family: 'Roboto', Arial, sans-serif;
@@ -285,13 +286,13 @@
         Use Current Location
       </button>
       <div id="travel-modes">
-        <button class="travel-mode-btn active" data-mode="DRIVING">
+        <button class="travel-mode-btn active" data-mode="car">
           <span class="material-icons">directions_car</span>
         </button>
-        <button class="travel-mode-btn" data-mode="WALKING">
+        <button class="travel-mode-btn" data-mode="foot">
           <span class="material-icons">directions_walk</span>
         </button>
-        <button class="travel-mode-btn" data-mode="BICYCLING">
+        <button class="travel-mode-btn" data-mode="bike">
           <span class="material-icons">directions_bike</span>
         </button>
       </div>
@@ -303,10 +304,10 @@
   </div>
   
   <div id="zoom-controls" class="map-control">
-    <button class="zoom-button" onclick="map.setZoom(map.getZoom() + 1)">
+    <button class="zoom-button" onclick="map.zoomIn()">
       <span class="material-icons">add</span>
     </button>
-    <button class="zoom-button" onclick="map.setZoom(map.getZoom() - 1)">
+    <button class="zoom-button" onclick="map.zoomOut()">
       <span class="material-icons">remove</span>
     </button>
   </div>
@@ -333,10 +334,11 @@
     <div id="route-details"></div>
   </div>
 
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
   <script>
-    // Configuration - Replace these values with your actual data
+    // Configuration
     const config = {
-      apiKey: "AIzaSyBCN_NsTb_psU3rjRw8t7-Pn7lcKJiut8w", // Replace with your API key
       destination: { lat: 35.27353552933397, lng: 25.46198725258581 },
       waypoints: [
         { lat: 35.27752979377787, lng: 25.467648822116395 },
@@ -349,82 +351,31 @@
     // Map variables
     let map;
     let userLocation = null;
-    let directionsRenderer = null;
-    let currentTravelMode = 'DRIVING';
+    let currentTravelMode = 'car';
     let currentLocationMarker = null;
     let waypointMarkers = [];
+    let routeControl = null;
 
     // Initialize the map
     function initMap() {
-      const mapOptions = {
-        zoom: 14,
-        center: config.destination,
-        zoomControl: false,
-        mapTypeControl: true,
-        mapTypeControlOptions: {
-          style: google.maps.MapTypeControlStyle.DROPDOWN_MENU,
-          position: google.maps.ControlPosition.TOP_RIGHT
-        },
-        streetViewControl: true,
-        streetViewControlOptions: {
-          position: google.maps.ControlPosition.RIGHT_BOTTOM
-        },
-        fullscreenControl: true,
-        fullscreenControlOptions: {
-          position: google.maps.ControlPosition.RIGHT_TOP
-        }
-      };
+      map = L.map('map').setView([config.destination.lat, config.destination.lng], 14);
 
-      map = new google.maps.Map(document.getElementById("map"), mapOptions);
-
-      // Initialize directions renderer with consistent styling
-      directionsRenderer = new google.maps.DirectionsRenderer({
-        map: map,
-        suppressMarkers: true,
-        polylineOptions: {
-          strokeColor: "#1a73e8",
-          strokeWeight: 5,
-          strokeOpacity: 0.8
-        },
-        suppressPolylines: false
-      });
+      // Add OpenStreetMap tile layer
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+      }).addTo(map);
 
       // Add destination marker
-      new google.maps.Marker({
-        position: config.destination,
-        map: map,
-        title: "Destination",
-        icon: {
-          path: google.maps.SymbolPath.CIRCLE,
-          scale: 10,
-          fillColor: "#1a73e8",
-          fillOpacity: 1,
-          strokeColor: "#ffffff",
-          strokeWeight: 2,
-        }
-      });
+      L.marker([config.destination.lat, config.destination.lng], {
+        title: "Destination"
+      }).addTo(map);
 
       // Add waypoint markers
       config.waypoints.forEach((waypoint, index) => {
-        waypointMarkers.push(new google.maps.Marker({
-          position: waypoint,
-          map: map,
-          title: `Waypoint ${index + 1}`,
-          icon: {
-            path: google.maps.SymbolPath.CIRCLE,
-            scale: 8,
-            fillColor: "#34a853",
-            fillOpacity: 1,
-            strokeColor: "#ffffff",
-            strokeWeight: 2,
-          },
-          label: {
-            text: (index + 1).toString(),
-            color: "#ffffff",
-            fontSize: "12px",
-            fontWeight: "bold"
-          }
-        }));
+        const marker = L.marker([waypoint.lat, waypoint.lng], {
+          title: `Waypoint ${index + 1}`
+        }).addTo(map);
+        waypointMarkers.push(marker);
       });
 
       // Try to get user's location by default
@@ -446,31 +397,6 @@
         });
       });
 
-      // Initialize autocomplete search
-      const searchInput = document.getElementById('location-search');
-      const autocomplete = new google.maps.places.Autocomplete(searchInput, {
-        fields: ['geometry', 'formatted_address']
-      });
-
-      autocomplete.addListener('place_changed', () => {
-        const place = autocomplete.getPlace();
-        if (!place.geometry) {
-          alert("No location found for the entered address.");
-          return;
-        }
-
-        userLocation = {
-          lat: place.geometry.location.lat(),
-          lng: place.geometry.location.lng()
-        };
-
-        updateStartingLocationMarker(userLocation);
-        calculateRoute(userLocation);
-        
-        document.getElementById("coordinates").textContent = 
-          `Starting Point: ${place.formatted_address}`;
-      });
-
       // Route panel toggle
       const routeToggle = document.getElementById('route-toggle');
       const routePanel = document.getElementById('route-panel');
@@ -490,22 +416,12 @@
     // Update starting location marker
     function updateStartingLocationMarker(location) {
       if (currentLocationMarker) {
-        currentLocationMarker.setMap(null);
+        map.removeLayer(currentLocationMarker);
       }
 
-      currentLocationMarker = new google.maps.Marker({
-        position: location,
-        map: map,
-        title: "Starting Location",
-        icon: {
-          path: google.maps.SymbolPath.CIRCLE,
-          scale: 12,
-          fillColor: "#4285f4",
-          fillOpacity: 1,
-          strokeColor: "#ffffff",
-          strokeWeight: 2,
-        }
-      });
+      currentLocationMarker = L.marker([location.lat, location.lng], {
+        title: "Starting Location"
+      }).addTo(map);
     }
 
     // Get user's current location
@@ -521,7 +437,7 @@
           (position) => {
             userLocation = {
               lat: position.coords.latitude,
-              lng: position.coords.longitude,
+              lng: position.coords.longitude
             };
 
             document.getElementById("coordinates").textContent =
@@ -546,8 +462,8 @@
             alert("Error getting your location: " + error.message);
           },
           {
-            timeout: 10000, // 10 seconds timeout
-            maximumAge: 60000, // Accept cached position up to 1 minute old
+            timeout: 10000,
+            maximumAge: 60000,
             enableHighAccuracy: true
           }
         );
@@ -564,152 +480,233 @@
     function calculateRoute(origin) {
       const loadingIndicator = document.getElementById("loading-indicator");
       loadingIndicator.style.display = "block";
-      loadingIndicator.textContent = "Calculating optimized route...";
+      loadingIndicator.textContent = "Calculating route...";
 
-      const directionsService = new google.maps.DirectionsService();
+      // Remove existing route if any
+      if (routeControl) {
+        map.removeControl(routeControl);
+      }
 
-      const request = {
-        origin: origin,
-        destination: config.destination,
-        waypoints: config.waypoints.map(waypoint => ({
-          location: waypoint,
-          stopover: true // Ensures passing through each waypoint
-        })),
-        travelMode: google.maps.TravelMode[currentTravelMode],
-        optimizeWaypoints: false, // Maintains your specified order
-        provideRouteAlternatives: false // Prevents multiple route suggestions
-      };
+      // Create waypoints array
+      const waypoints = [
+        L.latLng(origin.lat, origin.lng),
+        ...config.waypoints.map(wp => L.latLng(wp.lat, wp.lng)),
+        L.latLng(config.destination.lat, config.destination.lng)
+      ];
 
-      directionsService.route(request, (result, status) => {
+      // Initialize routing control
+      routeControl = L.Routing.control({
+        waypoints: waypoints,
+        routeWhileDragging: true,
+        show: false,
+        addWaypoints: false,
+        draggableWaypoints: false,
+        fitSelectedRoutes: true,
+        lineOptions: {
+          styles: [{ color: '#1a73e8', opacity: 0.8, weight: 5 }]
+        },
+        createMarker: function() { return null; }
+      }).addTo(map);
+
+      // Listen for route calculation
+      routeControl.on('routesfound', function(e) {
         loadingIndicator.style.display = "none";
+        const routes = e.routes;
+        const route = routes[0];
+        
+        displayRouteInfo(route);
+      });
 
-        if (status === google.maps.DirectionsStatus.OK) {
-          // Ensure consistent styling
-          directionsRenderer.setOptions({
-            polylineOptions: {
-              strokeColor: "#1a73e8",
-              strokeWeight: 5,
-              strokeOpacity: 0.8
-            }
-          });
-          
-          directionsRenderer.setDirections(result);
-          
-          // Adjust map view to show the entire route
-          const bounds = new google.maps.LatLngBounds();
-          result.routes[0].overview_path.forEach(path => {
-            bounds.extend(path);
-          });
-          map.fitBounds(bounds, { padding: 50 });
-
-          displayRouteInfo(result);
-        } else {
-          alert("Failed to calculate route: " + status);
-          console.error("Directions request failed:", status);
-        }
+      routeControl.on('routingerror', function(e) {
+        loadingIndicator.style.display = "none";
+        alert("Failed to calculate route: " + e.error.message);
       });
     }
 
     // Display route information
-    function displayRouteInfo(result) {
-      const route = result.routes[0];
+    function displayRouteInfo(route) {
       const routePanel = document.getElementById("route-panel");
       const routeDetails = document.getElementById("route-details");
       const totalDistance = document.getElementById("total-distance");
       const totalDuration = document.getElementById("total-duration");
       const routeToggle = document.getElementById("route-toggle");
 
-      let distance = 0;
-      let duration = 0;
-      route.legs.forEach(leg => {
-        distance += leg.distance.value;
-        duration += leg.duration.value;
-      });
+      const distance = (route.summary.totalDistance / 1000).toFixed(1);
+      const duration = Math.round(route.summary.totalTime / 60);
 
-      const distanceKm = (distance / 1000).toFixed(1);
-      const hours = Math.floor(duration / 3600);
-      const minutes = Math.floor((duration % 3600) / 60);
-
-      totalDistance.innerHTML = `<strong>Total Distance:</strong> ${distanceKm} km`;
-      totalDuration.innerHTML = `<strong>Estimated Time:</strong> ${hours}h ${minutes}min`;
+      totalDistance.innerHTML = `<strong>Total Distance:</strong> ${distance} km`;
+      totalDuration.innerHTML = `<strong>Estimated Time:</strong> ${duration} min`;
 
       routeDetails.innerHTML = '';
+      route.instructions.forEach(instruction => {
+        const stepDiv = document.createElement('div');
+        stepDiv.className = 'route-step';
+        
+        let icon = 'arrow_forward';
+        if (instruction.type.includes('left')) icon = 'turn_left';
+        if (instruction.type.includes('right')) icon = 'turn_right';
+        if (instruction.type.includes('uturn')) icon = 'u_turn_left';
 
-      route.legs.forEach(leg => {
-        leg.steps.forEach(step => {
-          const stepDiv = document.createElement('div');
-          stepDiv.className = 'route-step';
-          
-          let icon = 'arrow_forward';
-          if (step.maneuver) {
-            if (step.maneuver.includes('left')) icon = 'turn_left';
-            if (step.maneuver.includes('right')) icon = 'turn_right';
-            if (step.maneuver.includes('uturn')) icon = 'u_turn_left';
-          }
-
-          stepDiv.innerHTML = `
-            <span class="material-icons step-icon">${icon}</span>
-            <div>
-              <div>${step.instructions}</div>
-              <div class="step-distance">${step.distance.text}</div>
-            </div>
-          `;
-          routeDetails.appendChild(stepDiv);
-        });
+        stepDiv.innerHTML = `
+          <span class="material-icons step-icon">${icon}</span>
+          <div>
+            <div>${instruction.text}</div>
+            <div class="step-distance">${instruction.distance} m</div>
+          </div>
+        `;
+        routeDetails.appendChild(stepDiv);
       });
 
       routeToggle.style.display = 'flex';
       routePanel.style.display = 'block';
     }
 
-    // Start navigation with continuous routing
+    // Start navigation
     function startNavigation() {
       if (!userLocation) {
         alert("Please set a starting location first.");
         return;
       }
 
-      // Convert travel mode to Google Maps URL compatible string
-      let travelModeStr;
+      // Convert travel mode to OSM routing service compatible string
+      let profile;
       switch(currentTravelMode) {
-        case 'DRIVING': travelModeStr = 'driving'; break;
-        case 'WALKING': travelModeStr = 'walking'; break;
-        case 'BICYCLING': travelModeStr = 'bicycling'; break;
-        default: travelModeStr = 'driving';
+        case 'car': profile = 'driving'; break;
+        case 'foot': profile = 'foot'; break;
+        case 'bike': profile = 'cycling'; break;
+        default: profile = 'driving';
       }
 
-      // Create waypoints string
-      const waypointsStr = config.waypoints.map(wp => `${wp.lat},${wp.lng}`).join('|');
-      
-      // Build the final URL with explicit waypoints
-      const url = new URL('https://www.google.com/maps/dir/');
-      url.searchParams.append('api', '1');
-      url.searchParams.append('origin', `${userLocation.lat},${userLocation.lng}`);
-      url.searchParams.append('destination', `${config.destination.lat},${config.destination.lng}`);
-      url.searchParams.append('travelmode', travelModeStr);
-      
-      // Only add waypoints if they exist
-      if (waypointsStr) {
-        url.searchParams.append('waypoints', waypointsStr);
-      }
-      
-      // Open in new tab
-      window.open(url.toString(), "_blank");
+      // Create coordinates array for the route
+      const coordinates = [
+        [userLocation.lng, userLocation.lat],
+        ...config.waypoints.map(wp => [wp.lng, wp.lat]),
+        [config.destination.lng, config.destination.lat]
+      ];
+
+      // Format coordinates for the API request
+      const coordinatesStr = coordinates.map(coord => coord.join(',')).join(';');
+
+      // Make request to OSM routing service with steps=true to get turn-by-turn instructions
+      fetch(`https://router.project-osrm.org/route/v1/${profile}/${coordinatesStr}?overview=full&geometries=geojson&steps=true`)
+        .then(response => response.json())
+        .then(data => {
+          if (data.code === 'Ok') {
+            // Create a GeoJSON layer for the route
+            const routeLayer = L.geoJSON(data.routes[0].geometry, {
+              style: {
+                color: '#1a73e8',
+                weight: 5,
+                opacity: 0.8
+              }
+            }).addTo(map);
+
+            // Fit map to show the entire route
+            map.fitBounds(routeLayer.getBounds(), { padding: [50, 50] });
+
+            // Display route information
+            const distance = (data.routes[0].distance / 1000).toFixed(1);
+            const duration = Math.round(data.routes[0].duration / 60);
+            
+            document.getElementById("total-distance").innerHTML = 
+              `<strong>Total Distance:</strong> ${distance} km`;
+            document.getElementById("total-duration").innerHTML = 
+              `<strong>Estimated Time:</strong> ${duration} min`;
+
+            // Display turn-by-turn instructions
+            const routeDetails = document.getElementById("route-details");
+            routeDetails.innerHTML = '';
+            
+            data.routes[0].legs.forEach((leg, legIndex) => {
+              leg.steps.forEach((step, stepIndex) => {
+                const stepDiv = document.createElement('div');
+                stepDiv.className = 'route-step';
+                
+                let icon = 'arrow_forward';
+                if (step.maneuver.modifier) {
+                  switch(step.maneuver.modifier) {
+                    case 'left': icon = 'turn_left'; break;
+                    case 'right': icon = 'turn_right'; break;
+                    case 'sharp left': icon = 'turn_sharp_left'; break;
+                    case 'sharp right': icon = 'turn_sharp_right'; break;
+                    case 'slight left': icon = 'turn_slight_left'; break;
+                    case 'slight right': icon = 'turn_slight_right'; break;
+                    case 'uturn': icon = 'u_turn_left'; break;
+                  }
+                }
+
+                const distance = (step.distance / 1000).toFixed(1);
+                const instruction = step.maneuver.instruction;
+                
+                stepDiv.innerHTML = `
+                  <span class="material-icons step-icon">${icon}</span>
+                  <div>
+                    <div>${instruction}</div>
+                    <div class="step-distance">${distance} km</div>
+                  </div>
+                `;
+                routeDetails.appendChild(stepDiv);
+              });
+            });
+
+            // Show route panel
+            document.getElementById("route-panel").style.display = "block";
+            document.getElementById("route-toggle").style.display = "flex";
+
+            // Start voice navigation
+            startVoiceNavigation(data.routes[0].legs);
+          } else {
+            alert("Failed to calculate route: " + data.message);
+          }
+        })
+        .catch(error => {
+          console.error("Error:", error);
+          alert("Failed to calculate route. Please try again.");
+        });
     }
 
-    // Error handling for Google Maps API loading
-    function gm_authFailure() {
-      alert("Google Maps failed to load. Please check your API key and try again.");
-      document.getElementById("loading-indicator").style.display = "none";
+    // Voice navigation
+    function startVoiceNavigation(legs) {
+      let currentLegIndex = 0;
+      let currentStepIndex = 0;
+      
+      // Function to speak the next instruction
+      function speakNextInstruction() {
+        if (currentLegIndex < legs.length) {
+          const leg = legs[currentLegIndex];
+          if (currentStepIndex < leg.steps.length) {
+            const step = leg.steps[currentStepIndex];
+            const instruction = step.maneuver.instruction;
+            
+            // Create speech synthesis
+            const utterance = new SpeechSynthesisUtterance(instruction);
+            utterance.rate = 1.0;
+            utterance.pitch = 1.0;
+            
+            // Speak the instruction
+            window.speechSynthesis.speak(utterance);
+            
+            // Move to next step
+            currentStepIndex++;
+            
+            // If this was the last step of the leg, move to next leg
+            if (currentStepIndex >= leg.steps.length) {
+              currentStepIndex = 0;
+              currentLegIndex++;
+            }
+            
+            // Schedule next instruction
+            setTimeout(speakNextInstruction, 5000); // Wait 5 seconds before next instruction
+          }
+        }
+      }
+      
+      // Start speaking instructions
+      speakNextInstruction();
     }
-    window.gm_authFailure = gm_authFailure;
+
+    // Initialize the map when the page loads
+    window.onload = initMap;
   </script>
-
-  <!-- Load Google Maps API with your key -->
-  <script
-    async
-    defer
-    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBCN_NsTb_psU3rjRw8t7-Pn7lcKJiut8w&libraries=places,geometry&callback=initMap"
-  ></script>
 </body>
 </html>
