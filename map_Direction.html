@@ -52,8 +52,8 @@
       directionsRenderer = new google.maps.DirectionsRenderer();
 
       map = new google.maps.Map(document.getElementById('map'), {
-        zoom: 13,
-        center: { lat: 35.278, lng: 25.466 }
+        zoom: 15,
+        center: { lat: 36.6757, lng: 74.8418 }
       });
 
       directionsRenderer.setMap(map);
@@ -92,9 +92,20 @@
     }
 
     document.getElementById('navigateBtn').addEventListener('click', () => {
+      if (!userLocation) {
+        alert("User location not available yet.");
+        return;
+      }
+
       const waypointString = waypoints.map(p => `${p.lat},${p.lng}`).join('|');
-      const navUrl = `https://www.google.com/maps/dir/?api=1&origin=${userLocation.lat},${userLocation.lng}&destination=${finalDestination.lat},${finalDestination.lng}&waypoints=${waypointString}&travelmode=driving`;
-      window.open(navUrl, '_blank');
+
+      const navUrl = `https://www.google.com/maps/dir/?api=1` +
+        `&origin=${userLocation.lat},${userLocation.lng}` +
+        `&destination=${finalDestination.lat},${finalDestination.lng}` +
+        `&waypoints=${encodeURIComponent(waypointString)}` +
+        `&travelmode=driving`;
+
+      window.location.href = navUrl; // Opens in same tab (or change to '_blank' if you want)
     });
 
     window.onload = initMap;
