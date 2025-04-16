@@ -1,114 +1,138 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Fixed Route Navigation</title>
+  <meta charset="utf-8">
+  <title>Mapbox Navigation with Waypoints</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+  <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
   <style>
-    #map {
-      height: 80vh;
-      width: 100%;
-    }
-    body {
-      font-family: sans-serif;
+    body, html {
       margin: 0;
       padding: 0;
+      height: 100%;
+      font-family: sans-serif;
+    }
+    #map {
+      position: absolute;
+      top: 0;
+      bottom: 60px;
+      width: 100%;
     }
     #controls {
-      padding: 10px;
+      position: fixed;
+      bottom: 0;
+      width: 100%;
+      height: 60px;
+      background: white;
       text-align: center;
+      padding: 10px 0;
+      box-shadow: 0 -2px 6px rgba(0,0,0,0.2);
+      z-index: 10;
     }
     button {
       padding: 10px 20px;
       font-size: 16px;
       border-radius: 8px;
       border: none;
-      background-color: #4285F4;
+      background-color: #3b9ddd;
       color: white;
       cursor: pointer;
     }
   </style>
 </head>
 <body>
-  <div id="map"></div>
-  <div id="controls">
-    <button id="navigateBtn">Start Navigation</button>
-  </div>
 
-  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBCN_NsTb_psU3rjRw8t7-Pn7lcKJiut8w"></script>
-  <script>
-    let map, directionsService, directionsRenderer, userLocation;
+<div id="map"></div>
+<div id="controls">
+  <button id="navigateBtn">Start Navigation</button>
+</div>
 
-    // Replace these with your actual points
-    const waypoints = [
-      { lat: 36.67688839182212, lng: 74.84217072974035}, // Point A
-      { lat: 36.67588139574511, lng: 74.84179214740072 }, // Point B
-      //{ lat: 35.27826354900544, lng: 25.466422280650296 }, // Point C
-      //{ lat: 35.280698068765, lng: 25.461342669957805 }, // Point D
-    ];
+<script>
+  mapboxgl.accessToken = 'pk.eyJ1IjoiYWxpbWVsdmkiLCJhIjoiY2tocTJteXYyMDd2eTJ4cHRxZzQ3Z2s1cyJ9.3l8QeNBZsfGUk7x1HokJLQ';
 
-    const finalDestination = { lat: 36.67542280345665, lng: 74.8417328501141 };
+  const waypoints = [
+    [74.841907, 36.676133],  // A
+    [74.841767, 36.675695],  // B
+    //[25.466422280650296, 35.27826354900544], // C (commented)
+    //[25.461342669957805, 35.280698068765],   // D (commented)
+  ];
 
-    function initMap() {
-      directionsService = new google.maps.DirectionsService();
-      directionsRenderer = new google.maps.DirectionsRenderer();
+  const destination = [74.84173929214852, 36.675400822320555];
 
-      map = new google.maps.Map(document.getElementById('map'), {
-        zoom: 15,
-        center: { lat: 36.6757, lng: 74.8418 }
-      });
+  let userLocation = null;
+  let map;
 
-      directionsRenderer.setMap(map);
+  function initMap(position) {
+    userLocation = [position.coords.longitude, position.coords.latitude];
 
-      // Get user location
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition((position) => {
-          userLocation = {
-            lat: position.coords.latitude,
-            lng: position.coords.longitude
-          };
+    console.log("User Location:", userLocation);  // Debug log
 
-          calculateAndDisplayRoute();
-        }, () => {
-          alert("Could not get your location");
-        });
-      } else {
-        alert("Geolocation not supported by this browser.");
-      }
-    }
-
-    function calculateAndDisplayRoute() {
-      directionsService.route({
-        origin: userLocation,
-        destination: finalDestination,
-        waypoints: waypoints.map(point => ({ location: point })),
-        optimizeWaypoints: false,
-        travelMode: google.maps.TravelMode.DRIVING
-      }, function(response, status) {
-        if (status === 'OK') {
-          directionsRenderer.setDirections(response);
-        } else {
-          alert('Directions request failed due to ' + status);
-        }
-      });
-    }
-
-    document.getElementById('navigateBtn').addEventListener('click', () => {
-      if (!userLocation) {
-        alert("User location not available yet.");
-        return;
-      }
-
-      const waypointString = waypoints.map(p => `${p.lat},${p.lng}`).join('|');
-
-      const navUrl = `https://www.google.com/maps/dir/?api=1` +
-        `&origin=${userLocation.lat},${userLocation.lng}` +
-        `&destination=${finalDestination.lat},${finalDestination.lng}` +
-        `&waypoints=${encodeURIComponent(waypointString)}` +
-        `&travelmode=driving`;
-
-      window.location.href = navUrl; // Opens in same tab (or change to '_blank' if you want)
+    map = new mapboxgl.Map({
+      container: 'map',
+      style: 'mapbox://styles/mapbox/streets-v11',
+      center: userLocation,
+      zoom: 15
     });
 
-    window.onload = initMap;
-  </script>
+    new mapboxgl.Marker({ color: 'green' }).setLngLat(userLocation).addTo(map);
+    waypoints.forEach(coord => {
+      new mapboxgl.Marker({ color: 'blue' }).setLngLat(coord).addTo(map);
+    });
+    new mapboxgl.Marker({ color: 'red' }).setLngLat(destination).addTo(map);
+
+    const coordinates = [userLocation, ...waypoints, destination];
+    const coordsStr = coordinates.map(c => c.join(',')).join(';');
+
+    fetch(`https://api.mapbox.com/directions/v5/mapbox/driving/${coordsStr}?geometries=geojson&access_token=${mapboxgl.accessToken}`)
+      .then(res => res.json())
+      .then(data => {
+        const route = data.routes[0].geometry;
+
+        map.addSource('route', {
+          type: 'geojson',
+          data: {
+            type: 'Feature',
+            geometry: route
+          }
+        });
+
+        map.addLayer({
+          id: 'route',
+          type: 'line',
+          source: 'route',
+          layout: {
+            'line-join': 'round',
+            'line-cap': 'round'
+          },
+          paint: {
+            'line-color': '#3b9ddd',
+            'line-width': 6
+          }
+        });
+      });
+  }
+
+  function locationError(err) {
+    alert("Failed to get location. Using fallback.");
+    userLocation = [74.841800, 36.675800];  // Fallback location
+    initMap({ coords: { latitude: userLocation[1], longitude: userLocation[0] } });
+  }
+
+  navigator.geolocation.getCurrentPosition(initMap, locationError, { enableHighAccuracy: true });
+
+  document.getElementById('navigateBtn').addEventListener('click', () => {
+    if (!userLocation) {
+      alert("User location not available yet.");
+      return;
+    }
+
+    const wpStr = waypoints.map(wp => `${wp[1]},${wp[0]}`).join('|');
+    const gmapUrl = `https://www.google.com/maps/dir/?api=1&origin=${userLocation[1]},${userLocation[0]}&destination=${destination[1]},${destination[0]}&waypoints=${wpStr}&travelmode=driving`;
+
+    window.open(gmapUrl, '_blank');
+  });
+</script>
+
 </body>
 </html>
