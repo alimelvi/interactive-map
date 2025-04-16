@@ -1,138 +1,157 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="utf-8">
-  <title>Mapbox Navigation with Waypoints</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
-  <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
-  <style>
-    body, html {
-      margin: 0;
-      padding: 0;
-      height: 100%;
-      font-family: sans-serif;
-    }
-    #map {
-      position: absolute;
-      top: 0;
-      bottom: 60px;
-      width: 100%;
-    }
-    #controls {
-      position: fixed;
-      bottom: 0;
-      width: 100%;
-      height: 60px;
-      background: white;
-      text-align: center;
-      padding: 10px 0;
-      box-shadow: 0 -2px 6px rgba(0,0,0,0.2);
-      z-index: 10;
-    }
-    button {
-      padding: 10px 20px;
-      font-size: 16px;
-      border-radius: 8px;
-      border: none;
-      background-color: #3b9ddd;
-      color: white;
-      cursor: pointer;
-    }
-  </style>
+    <title>Continuous Navigation</title>
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+        #map {
+            height: 80%;
+            width: 100%;
+        }
+        #info {
+            padding: 10px;
+            text-align: center;
+            height: 20%;
+        }
+    </style>
 </head>
 <body>
+    <div id="map"></div>
+    <div id="info">
+        <p>Getting your location...</p>
+        <p id="waypoint-status"></p>
+    </div>
 
-<div id="map"></div>
-<div id="controls">
-  <button id="navigateBtn">Start Navigation</button>
-</div>
+    <script>
+        let waypoints = [
+            { name: "Point A", location: { lat: 36.67400826738863, lng: 74.84110423145616 }, reached: false }, // Example: Lahore City Center
+            { name: "Point B", location: { lat: 36.669110611911535, lng: 74.84088777764168 }, reached: false }, // Example: Allama Iqbal International Airport
+            //{ name: "Point C", location: { lat: 31.5487, lng: 74.3092 }, reached: false }, // Example: Shalimar Gardens
+            //{ name: "Point D", location: { lat: 31.5649, lng: 74.3793 }, reached: false }, // Example: Badshahi Mosque
+            { name: "Destination", location: { lat: 36.66590496189394, lng: 74.84161750011629 }, reached: false } // Example: произвольная точка
+        ];
+        let currentWaypointIndex = 0;
+        let map;
+        let directionsService;
+        let directionsRenderer;
+        let watchId;
+        const REACHED_THRESHOLD = 50; // meters
 
-<script>
-  mapboxgl.accessToken = 'pk.eyJ1IjoiYWxpbWVsdmkiLCJhIjoiY2tocTJteXYyMDd2eTJ4cHRxZzQ3Z2s1cyJ9.3l8QeNBZsfGUk7x1HokJLQ';
+        function initMap() {
+            map = new google.maps.Map(document.getElementById('map'), {
+                center: { lat: 31.5204, lng: 74.3587 }, // Initial center (Lahore)
+                zoom: 12
+            });
+            directionsService = new google.maps.DirectionsService();
+            directionsRenderer = new google.maps.DirectionsRenderer({ map: map });
+            directionsRenderer.setOptions({ suppressMarkers: true }); // To hide default markers
 
-  const waypoints = [
-    [74.841907, 36.676133],  // A
-    [74.841767, 36.675695],  // B
-    //[25.466422280650296, 35.27826354900544], // C (commented)
-    //[25.461342669957805, 35.280698068765],   // D (commented)
-  ];
+            document.getElementById('info').innerHTML = "<p>Getting your location...</p>";
 
-  const destination = [74.84173929214852, 36.675400822320555];
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(function(position) {
+                    document.getElementById('info').innerHTML = "<p>Location found. Starting navigation.</p>";
+                    navigateToNextWaypoint(position.coords.latitude, position.coords.longitude);
+                    watchId = navigator.geolocation.watchPosition(handlePositionUpdate, handleError, {
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 0
+                    });
+                }, function(error) {
+                    handleLocationError(error);
+                });
+            } else {
+                document.getElementById('info').innerHTML = "<p>Geolocation is not supported by your browser.</p>";
+            }
+        }
 
-  let userLocation = null;
-  let map;
+        function handlePositionUpdate(position) {
+            let userLat = position.coords.latitude;
+            let userLng = position.coords.longitude;
+            let currentWaypoint = waypoints[currentWaypointIndex];
 
-  function initMap(position) {
-    userLocation = [position.coords.longitude, position.coords.latitude];
+            if (currentWaypoint && !currentWaypoint.reached) {
+                document.getElementById('waypoint-status').innerText = `Navigating to: ${currentWaypoint.name}`;
+                if (isNearWaypoint(userLat, userLng, currentWaypoint.location.lat, currentWaypoint.location.lng, REACHED_THRESHOLD)) {
+                    waypoints[currentWaypointIndex].reached = true;
+                    document.getElementById('waypoint-status').innerText = `${currentWaypoint.name} reached!`;
+                    currentWaypointIndex++;
+                    if (currentWaypointIndex < waypoints.length) {
+                        navigateToNextWaypoint(userLat, userLng);
+                    } else {
+                        document.getElementById('info').innerHTML = "<p>Destination reached!</p>";
+                        document.getElementById('waypoint-status').innerText = "";
+                        navigator.geolocation.clearWatch(watchId);
+                    }
+                }
+            }
+        }
 
-    console.log("User Location:", userLocation);  // Debug log
+        function navigateToNextWaypoint(originLat, originLng) {
+            if (currentWaypointIndex < waypoints.length) {
+                let destination = waypoints[currentWaypointIndex].location;
+                directionsService.route({
+                    origin: { lat: originLat, lng: originLng },
+                    destination: destination,
+                    travelMode: google.maps.TravelMode.DRIVING
+                }, function(response, status) {
+                    if (status === google.maps.DirectionsStatus.OK) {
+                        directionsRenderer.setDirections(response);
+                        // Add a custom marker for each waypoint
+                        new google.maps.Marker({
+                            position: destination,
+                            map: map,
+                            label: waypoints[currentWaypointIndex].name.charAt(0) // First letter of the name
+                        });
+                    } else {
+                        document.getElementById('info').innerHTML = `<p>Directions request failed due to ${status}</p>`;
+                    }
+                });
+            }
+        }
 
-    map = new mapboxgl.Map({
-      container: 'map',
-      style: 'mapbox://styles/mapbox/streets-v11',
-      center: userLocation,
-      zoom: 15
-    });
+        function isNearWaypoint(lat1, lng1, lat2, lng2, radius) {
+            const R = 6371e3; // meters
+            const φ1 = toRadians(lat1);
+            const φ2 = toRadians(lat2);
+            const Δφ = toRadians(lat2 - lat1);
+            const Δλ = toRadians(lng2 - lng1);
 
-    new mapboxgl.Marker({ color: 'green' }).setLngLat(userLocation).addTo(map);
-    waypoints.forEach(coord => {
-      new mapboxgl.Marker({ color: 'blue' }).setLngLat(coord).addTo(map);
-    });
-    new mapboxgl.Marker({ color: 'red' }).setLngLat(destination).addTo(map);
+            const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+                      Math.cos(φ1) * Math.cos(φ2) *
+                      Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            const d = R * c;
+            return d <= radius;
+        }
 
-    const coordinates = [userLocation, ...waypoints, destination];
-    const coordsStr = coordinates.map(c => c.join(',')).join(';');
+        function toRadians(degrees) {
+            return degrees * Math.PI / 180;
+        }
 
-    fetch(`https://api.mapbox.com/directions/v5/mapbox/driving/${coordsStr}?geometries=geojson&access_token=${mapboxgl.accessToken}`)
-      .then(res => res.json())
-      .then(data => {
-        const route = data.routes[0].geometry;
-
-        map.addSource('route', {
-          type: 'geojson',
-          data: {
-            type: 'Feature',
-            geometry: route
-          }
-        });
-
-        map.addLayer({
-          id: 'route',
-          type: 'line',
-          source: 'route',
-          layout: {
-            'line-join': 'round',
-            'line-cap': 'round'
-          },
-          paint: {
-            'line-color': '#3b9ddd',
-            'line-width': 6
-          }
-        });
-      });
-  }
-
-  function locationError(err) {
-    alert("Failed to get location. Using fallback.");
-    userLocation = [74.841800, 36.675800];  // Fallback location
-    initMap({ coords: { latitude: userLocation[1], longitude: userLocation[0] } });
-  }
-
-  navigator.geolocation.getCurrentPosition(initMap, locationError, { enableHighAccuracy: true });
-
-  document.getElementById('navigateBtn').addEventListener('click', () => {
-    if (!userLocation) {
-      alert("User location not available yet.");
-      return;
-    }
-
-    const wpStr = waypoints.map(wp => `${wp[1]},${wp[0]}`).join('|');
-    const gmapUrl = `https://www.google.com/maps/dir/?api=1&origin=${userLocation[1]},${userLocation[0]}&destination=${destination[1]},${destination[0]}&waypoints=${wpStr}&travelmode=driving`;
-
-    window.open(gmapUrl, '_blank');
-  });
-</script>
-
+        function handleLocationError(error) {
+            let errorMessage = "Error getting location: ";
+            switch(error.code) {
+                case error.PERMISSION_DENIED:
+                    errorMessage += "User denied the request for Geolocation.";
+                    break;
+                case error.POSITION_UNAVAILABLE:
+                    errorMessage += "Location information is unavailable.";
+                    break;
+                case error.TIMEOUT:
+                    errorMessage += "The request to get user location timed out.";
+                    break;
+                case error.UNKNOWN_ERROR:
+                    errorMessage += "An unknown error occurred.";
+                    break;
+            }
+            document.getElementById('info').innerHTML = `<p>${errorMessage}</p>`;
+        }
+    </script>
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBCN_NsTb_psU3rjRw8t7-Pn7lcKJiut8w&callback=initMap"></script>
 </body>
 </html>
