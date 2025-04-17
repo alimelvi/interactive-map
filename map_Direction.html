@@ -44,6 +44,7 @@
         let watchId;
         let navigationActive = false;
         let previousPosition = null;
+        let initialUserLocation = null;
 
         // Define your waypoints here
         const pointA = { lat: 36.676360283268124, lng: 74.84204535079336 };
@@ -53,21 +54,34 @@
 
         function initMap() {
             map = new google.maps.Map(document.getElementById('map'), {
-                center: { lat: 31.5204, lng: 74.3587 }, // Initial view over Lahore
+                center: { lat: 31.5204, lng: 74.3587 }, // Initial view (can be overridden)
                 zoom: 12
             });
 
             directionsService = new google.maps.DirectionsService();
             directionsRenderer = new google.maps.DirectionsRenderer({ map: map, suppressMarkers: true, polylineOptions: { strokeColor: 'blue', strokeWeight: 5 } });
 
+            document.getElementById('startNavigation').addEventListener('click', startNavigationSimulation);
+
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(initialMapSetupWithLocation, handleLocationError);
+            } else {
+                alert("Geolocation is not supported by your browser.");
+            }
+        }
+
+        function initialMapSetupWithLocation(position) {
+            initialUserLocation = new google.maps.LatLng(position.coords.latitude, position.coords.longitude);
+            map.setCenter(initialUserLocation);
+
             const waypoints = [
                 { location: pointA },
                 { location: pointB },
-             //   { location: pointC }
+                { location: pointC }
             ];
 
             directionsService.route({
-                origin: { lat: 31.5204, lng: 74.3587 }, // Initial origin (can be changed to user's location later)
+                origin: initialUserLocation,
                 destination: finalDestination,
                 waypoints: waypoints,
                 travelMode: google.maps.TravelMode.DRIVING
@@ -79,41 +93,33 @@
                     console.error('Directions request failed due to ' + status);
                 }
             });
-
-            document.getElementById('startNavigation').addEventListener('click', startNavigationSimulation);
         }
 
         function startNavigationSimulation() {
-            if (!navigationActive) {
+            if (!navigationActive && initialUserLocation) {
                 navigationActive = true;
                 document.getElementById('startNavigation').innerText = 'Navigating...';
-                if (navigator.geolocation) {
-                    navigator.geolocation.getCurrentPosition(initialLocation, handleLocationError);
-                } else {
-                    alert("Geolocation is not supported by your browser.");
-                }
+                map.setZoom(18);
+
+                carMarker = new google.maps.Marker({
+                    position: initialUserLocation,
+                    map: map,
+                    icon: {
+                        url: 'https://maps.gstatic.com/mapfiles/ms2/img/car_maps.png',
+                        scaledSize: new google.maps.Size(30, 30)
+                    }
+                });
+
+                watchId = navigator.geolocation.watchPosition(updateCarPosition, handleLocationError, {
+                    enableHighAccuracy: true,
+                    timeout: 5000,
+                    maximumAge: 0
+                });
+            } else if (!initialUserLocation) {
+                alert("Waiting for initial location...");
+            } else {
+                alert("Navigation already started.");
             }
-        }
-
-        function initialLocation(position) {
-            const initialLatLng = new google.maps.LatLng(position.coords.latitude, position.coords.longitude);
-            map.setCenter(initialLatLng);
-            map.setZoom(18);
-
-            carMarker = new google.maps.Marker({
-                position: initialLatLng,
-                map: map,
-                icon: {
-                    url: 'https://maps.gstatic.com/mapfiles/ms2/img/car_maps.png', // Or your custom car icon
-                    scaledSize: new google.maps.Size(30, 30)
-                }
-            });
-
-            watchId = navigator.geolocation.watchPosition(updateCarPosition, handleLocationError, {
-                enableHighAccuracy: true,
-                timeout: 5000,
-                maximumAge: 0
-            });
         }
 
         function updateCarPosition(position) {
