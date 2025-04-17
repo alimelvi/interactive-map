@@ -1,180 +1,879 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Simulated Navigation</title>
-    <style>
-        html, body {
-            height: 100%;
-            margin: 0;
-            padding: 0;
-        }
-        #map {
-            height: 80%;
-            width: 100%;
-        }
-        #controls {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            z-index: 10;
-            background-color: rgba(255, 255, 255, 0.8);
-            padding: 10px;
-            border-radius: 5px;
-        }
-        button {
-            padding: 10px 20px;
-            font-size: 1em;
-            cursor: pointer;
-        }
-    </style>
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBCN_NsTb_psU3rjRw8t7-Pn7lcKJiut8w&libraries=geometry&callback=initMap" async defer></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Enhanced Navigation System</title>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Roboto', Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      color: #3c4043;
+    }
+    #map {
+      flex: 1;
+      width: 100%;
+      position: relative;
+    }
+    #controls {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 10;
+      background-color: rgba(255, 255, 255, 0.9);
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    }
+    #navigation-info {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background-color: rgba(255, 255, 255, 0.9);
+      padding: 15px;
+      border-radius: 8px;
+      margin: 10px;
+      z-index: 10;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 1em;
+      cursor: pointer;
+      border: none;
+      border-radius: 4px;
+      margin: 5px;
+      transition: background-color 0.3s;
+    }
+    #startNavigation {
+      background-color: #4CAF50;
+      color: white;
+    }
+    #stopNavigation {
+      background-color: #f44336;
+      color: white;
+      display: none;
+    }
+    button:hover {
+      opacity: 0.9;
+    }
+    .info-item {
+      margin: 5px 0;
+      font-size: 0.9em;
+    }
+    .loading {
+      display: none;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 1000;
+      background-color: rgba(255, 255, 255, 0.8);
+      padding: 20px;
+      border-radius: 8px;
+    }
+    #coordinates {
+      margin-bottom: 12px;
+      font-size: 13px;
+      color: #5f6368;
+      padding: 8px 0;
+      border-bottom: 1px solid #e8eaed;
+    }
+    .button-container {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .map-control {
+      position: fixed;
+      right: 10px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      overflow: hidden;
+    }
+    #zoom-controls {
+      top: 10px;
+      display: flex;
+      flex-direction: column;
+    }
+    .zoom-button {
+      padding: 8px;
+      font-size: 18px;
+      background: white;
+      border: none;
+      border-bottom: 1px solid #e8eaed;
+      cursor: pointer;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .zoom-button:last-child {
+      border-bottom: none;
+    }
+    .zoom-button:hover {
+      background-color: #f8f9fa;
+    }
+    /* Material Icons */
+    .material-icons {
+      font-family: 'Material Icons';
+      font-size: 20px;
+      margin-right: 4px;
+    }
+
+    #route-panel {
+      position: fixed;
+      right: 10px;
+      top: 100px;
+      width: 300px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      z-index: 1;
+      max-height: 60vh;
+      overflow-y: auto;
+      display: none;
+    }
+
+    #route-summary {
+      padding: 16px;
+      border-bottom: 1px solid #e8eaed;
+    }
+
+    #route-details {
+      padding: 16px;
+    }
+
+    .route-step {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 12px;
+      font-size: 13px;
+      color: #3c4043;
+    }
+
+    .step-icon {
+      color: #1a73e8;
+      flex-shrink: 0;
+    }
+
+    .step-distance {
+      color: #5f6368;
+      font-size: 12px;
+      margin-top: 4px;
+    }
+
+    #travel-modes {
+      display: flex;
+      gap: 8px;
+      margin: 8px 0;
+      justify-content: center;
+    }
+
+    .travel-mode-btn {
+      flex: 1;
+      padding: 8px;
+      background: #f8f9fa;
+      color: #3c4043;
+    }
+
+    .travel-mode-btn.active {
+      background: #1a73e8;
+      color: white;
+    }
+
+    .travel-mode-btn:hover:not(.active) {
+      background: #e8eaed;
+    }
+
+    #search-box {
+      margin-bottom: 12px;
+    }
+
+    #location-search {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #e8eaed;
+      border-radius: 4px;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+
+    #location-search:focus {
+      outline: none;
+      border-color: #1a73e8;
+    }
+
+    .pac-container {
+      border-radius: 4px;
+      margin-top: 4px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    @media (max-width: 768px) {
+      #controls {
+        left: 50%;
+        transform: translateX(-50%);
+        width: calc(100% - 32px);
+        max-width: 400px;
+      }
+
+      #zoom-controls {
+        bottom: 100px;
+        top: auto;
+      }
+
+      #route-panel {
+        position: fixed;
+        right: 0;
+        top: auto;
+        bottom: 0;
+        width: 100%;
+        max-height: 50vh;
+        border-radius: 12px 12px 0 0;
+        transform: translateY(100%);
+        transition: transform 0.3s ease-in-out;
+      }
+
+      #route-panel.open {
+        transform: translateY(0);
+      }
+
+      #route-toggle {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        width: auto;
+        padding: 12px;
+        border-radius: 50%;
+        aspect-ratio: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        z-index: 2;
+      }
+
+      #route-toggle .material-icons {
+        margin: 0;
+      }
+
+      #route-panel-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 16px;
+        border-bottom: 1px solid #e8eaed;
+      }
+
+      #route-panel-header h3 {
+        margin: 0;
+      }
+
+      .close-panel {
+        background: none;
+        border: none;
+        padding: 8px;
+        cursor: pointer;
+        color: #5f6368;
+      }
+
+      .close-panel:hover {
+        background: none;
+        color: #1a73e8;
+      }
+
+      #travel-modes {
+        margin: 12px 0;
+      }
+
+      .travel-mode-btn {
+        padding: 12px;
+      }
+
+      #location-search {
+        padding: 12px;
+      }
+    }
+  </style>
 </head>
 <body>
-    <div id="map"></div>
-    <div id="controls">
-        <button id="startNavigation">Start Navigation</button>
+  <div id="map"></div>
+  <div id="controls">
+    <div id="search-box">
+      <input 
+        id="location-search" 
+        type="text" 
+        placeholder="Enter a starting location"
+        autocomplete="off"
+      >
     </div>
+    <div id="coordinates">Current Location: Fetching...</div>
+    <div class="button-container">
+      <button id="useLocation">
+        <span class="material-icons">my_location</span>
+        Use Current Location
+      </button>
+      <div id="travel-modes">
+        <button class="travel-mode-btn active" data-mode="DRIVING">
+          <span class="material-icons">directions_car</span>
+        </button>
+        <button class="travel-mode-btn" data-mode="WALKING">
+          <span class="material-icons">directions_walk</span>
+        </button>
+        <button class="travel-mode-btn" data-mode="BICYCLING">
+          <span class="material-icons">directions_bike</span>
+        </button>
+      </div>
+      <button id="startNavigation">
+        <span class="material-icons">directions</span>
+        Start Navigation
+      </button>
+      <button id="stopNavigation">
+        <span class="material-icons">stop</span>
+        Stop Navigation
+      </button>
+    </div>
+  </div>
+  
+  <div id="zoom-controls" class="map-control">
+    <button class="zoom-button" onclick="map.setZoom(map.getZoom() + 1)">
+      <span class="material-icons">add</span>
+    </button>
+    <button class="zoom-button" onclick="map.setZoom(map.getZoom() - 1)">
+      <span class="material-icons">remove</span>
+    </button>
+  </div>
 
-    <script>
-        let map;
-        let carMarker;
-        let directionsService;
-        let directionsRenderer;
-        let routePath = [];
-        let watchId;
-        let navigationActive = false;
-        let previousPosition = null;
-        let initialUserLocation = null;
+  <div id="navigation-info">
+    <div class="info-item">Distance to destination: <span id="distance">--</span></div>
+    <div class="info-item">Estimated time: <span id="time">--</span></div>
+    <div class="info-item">Current speed: <span id="speed">--</span> km/h</div>
+    <div class="info-item">Next turn: <span id="nextTurn">--</span></div>
+  </div>
 
-        // Define your waypoints here
-        const pointA = { lat: 36.676360283268124, lng: 74.84204535079336 };
-        const pointB = { lat: 36.67595657078645, lng: 74.84180405007768 };
-        //const pointC = { lat: 36.665904, lng: 74.841617 };
-        const finalDestination = { lat: 36.67541117805461, lng: 74.84172182247791 }; // Example
+  <div id="loading" class="loading">Loading...</div>
 
-        function initMap() {
-            map = new google.maps.Map(document.getElementById('map'), {
-                center: { lat: 31.5204, lng: 74.3587 }, // Initial view (can be overridden)
-                zoom: 12
-            });
+  <button id="route-toggle" style="display: none;">
+    <span class="material-icons">info</span>
+  </button>
 
-            directionsService = new google.maps.DirectionsService();
-            directionsRenderer = new google.maps.DirectionsRenderer({ map: map, suppressMarkers: true, polylineOptions: { strokeColor: 'blue', strokeWeight: 5 } });
+  <div id="route-panel">
+    <div id="route-panel-header">
+      <h3>Route Information</h3>
+      <button class="close-panel">
+        <span class="material-icons">close</span>
+      </button>
+    </div>
+    <div id="route-summary">
+      <div id="total-distance"></div>
+      <div id="total-duration"></div>
+    </div>
+    <div id="route-details"></div>
+  </div>
 
-            const waypoints = [
-                { location: pointA },
-                { location: pointB },
-            //    { location: pointC }
-            ];
+  <script>
+    // Global variables
+    let map;
+    let userLocation = null;
+    let directionsRenderer = null;
+    let currentTravelMode = 'DRIVING';
+    let currentLocationMarker = null;
+    let carMarker;
+    let directionsService;
+    let routePath = [];
+    let watchId;
+    let navigationActive = false;
+    let previousPosition = null;
+    let initialUserLocation = null;
+    let currentRoute = null;
+    let speechSynthesis = window.speechSynthesis;
 
-            directionsService.route({
-                origin: { lat: 31.5204, lng: 74.3587 }, // Initial origin (can be changed to user's location later if desired)
-                destination: finalDestination,
-                waypoints: waypoints,
-                travelMode: google.maps.TravelMode.DRIVING
-            }, (response, status) => {
-                if (status === google.maps.DirectionsStatus.OK) {
-                    directionsRenderer.setDirections(response);
-                    routePath = response.routes[0].overview_path;
-                } else {
-                    console.error('Directions request failed due to ' + status);
-                }
-            });
+    // Destination coordinates
+    const destination = { lat: 35.27353552933397, lng: 25.46198725258581 };
 
-            document.getElementById('startNavigation').addEventListener('click', startNavigationSimulation);
+    // Waypoints coordinates
+    const waypoints = [
+      { lat: 35.27752979377787, lng: 25.467648822116395 },
+      { lat: 35.27981652933252, lng: 25.467600687173636 },
+      { lat: 35.27826354900544, lng: 25.466422280650296 },
+      { lat: 35.280698068765, lng: 25.461342669957805 },
+    ];
+
+    // Initialize the map with Google Maps styling
+    function initMap() {
+      const mapOptions = {
+        zoom: 14,
+        center: destination,
+        zoomControl: false,
+        mapTypeControl: true,
+        mapTypeControlOptions: {
+          style: google.maps.MapTypeControlStyle.DROPDOWN_MENU,
+          position: google.maps.ControlPosition.TOP_RIGHT
+        },
+        streetViewControl: true,
+        streetViewControlOptions: {
+          position: google.maps.ControlPosition.RIGHT_BOTTOM
+        },
+        fullscreenControl: true,
+        fullscreenControlOptions: {
+          position: google.maps.ControlPosition.RIGHT_TOP
+        },
+        gestureHandling: 'cooperative',
+        styles: [
+          {
+            featureType: "poi",
+            elementType: "labels",
+            stylers: [{ visibility: "on" }]
+          },
+          {
+            featureType: "transit",
+            elementType: "labels",
+            stylers: [{ visibility: "on" }]
+          }
+        ]
+      };
+
+      map = new google.maps.Map(document.getElementById("map"), mapOptions);
+
+      // Add a marker for the destination
+      new google.maps.Marker({
+        position: destination,
+        map: map,
+        title: "Destination",
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 10,
+          fillColor: "#1a73e8",
+          fillOpacity: 1,
+          strokeColor: "#ffffff",
+          strokeWeight: 2,
+        }
+      });
+
+      directionsRenderer = new google.maps.DirectionsRenderer({
+        map: map,
+        suppressMarkers: true,
+        polylineOptions: {
+          strokeColor: "#1a73e8",
+          strokeWeight: 5,
+          strokeOpacity: 0.8
+        }
+      });
+
+      directionsService = new google.maps.DirectionsService();
+
+      // Initialize event listeners
+      setupEventListeners();
+
+      // Try to get user's location by default
+      fetchUserLocation(false);
+    }
+
+    function setupEventListeners() {
+      document.getElementById("useLocation").addEventListener("click", () => fetchUserLocation(true));
+      document.getElementById("startNavigation").addEventListener("click", startNavigationSimulation);
+      document.getElementById("stopNavigation").addEventListener("click", stopNavigationSimulation);
+
+      // Add travel mode listeners
+      document.querySelectorAll('.travel-mode-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.travel-mode-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          currentTravelMode = btn.dataset.mode;
+          if (userLocation) {
+            calculateRoute(userLocation);
+          }
+        });
+      });
+
+      // Initialize the autocomplete search box
+      const searchInput = document.getElementById('location-search');
+      const autocomplete = new google.maps.places.Autocomplete(searchInput, {
+        fields: ['geometry', 'formatted_address']
+      });
+
+      autocomplete.addListener('place_changed', () => {
+        const place = autocomplete.getPlace();
+        if (!place.geometry) {
+          alert("No location found for the entered address.");
+          return;
         }
 
-        function startNavigationSimulation() {
-            if (!navigationActive && initialUserLocation) {
-                navigationActive = true;
-                document.getElementById('startNavigation').innerText = 'Navigating...';
-                map.setZoom(18);
+        userLocation = {
+          lat: place.geometry.location.lat(),
+          lng: place.geometry.location.lng()
+        };
 
-                carMarker = new google.maps.Marker({
-                    position: initialUserLocation,
-                    map: map,
-                    icon: {
-                        url: 'https://maps.gstatic.com/mapfiles/ms2/img/car_maps.png',
-                        scaledSize: new google.maps.Size(30, 30),
-                        rotation: 0 // Initial rotation
-                    }
-                });
+        updateStartingLocationMarker(userLocation);
+        calculateRoute(userLocation);
+        
+        document.getElementById("coordinates").textContent = 
+          `Starting Point: ${place.formatted_address}`;
+      });
 
-                watchId = navigator.geolocation.watchPosition(updateCarPosition, handleLocationError, {
-                    enableHighAccuracy: true,
-                    timeout: 5000,
-                    maximumAge: 0
-                });
-            } else if (!initialUserLocation) {
-                alert("Waiting for initial location...");
-            } else {
-                alert("Navigation already started.");
+      // Add route panel toggle functionality
+      const routeToggle = document.getElementById('route-toggle');
+      const routePanel = document.getElementById('route-panel');
+      const closePanel = document.querySelector('.close-panel');
+
+      routeToggle.addEventListener('click', () => {
+        routePanel.classList.add('open');
+        routeToggle.style.display = 'none';
+      });
+
+      closePanel.addEventListener('click', () => {
+        routePanel.classList.remove('open');
+        routeToggle.style.display = 'flex';
+      });
+    }
+
+    function updateStartingLocationMarker(location) {
+      if (currentLocationMarker) {
+        currentLocationMarker.setMap(null);
+      }
+
+      currentLocationMarker = new google.maps.Marker({
+        position: location,
+        map: map,
+        title: "Starting Location",
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 12,
+          fillColor: "#4285f4",
+          fillOpacity: 1,
+          strokeColor: "#ffffff",
+          strokeWeight: 2,
+        }
+      });
+    }
+
+    function fetchUserLocation(showLoadingIndicator) {
+      if (showLoadingIndicator) {
+        const loadingIndicator = document.getElementById("loading");
+        loadingIndicator.style.display = "block";
+        loadingIndicator.textContent = "Getting your location...";
+      }
+
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            userLocation = {
+              lat: position.coords.latitude,
+              lng: position.coords.longitude,
+            };
+
+            document.getElementById("coordinates").textContent =
+              `Starting Point: Current Location`;
+            
+            document.getElementById("location-search").value = '';
+
+            updateStartingLocationMarker(userLocation);
+
+            if (showLoadingIndicator) {
+              const loadingIndicator = document.getElementById("loading");
+              loadingIndicator.textContent = "Calculating route...";
             }
-        }
-
-        function initialLocation(position) {
-            initialUserLocation = new google.maps.LatLng(position.coords.latitude, position.coords.longitude);
-            map.setCenter(initialUserLocation);
-            startNavigationSimulation(); // Start navigation once initial location is known
-        }
-
-        function updateCarPosition(position) {
-            if (navigationActive && carMarker) {
-                const currentLatLng = new google.maps.LatLng(position.coords.latitude, position.coords.longitude);
-                carMarker.setPosition(currentLatLng);
-                map.setCenter(currentLatLng);
-
-                if (previousPosition) {
-                    const heading = google.maps.geometry.spherical.computeHeading(
-                        previousPosition,
-                        currentLatLng
-                    );
-                    map.setHeading(heading);
-                    carMarker.setIcon({
-                        url: 'https://maps.gstatic.com/mapfiles/ms2/img/car_maps.png',
-                        scaledSize: new google.maps.Size(30, 30),
-                        rotation: heading
-                    });
-                }
-                previousPosition = currentLatLng;
+            
+            calculateRoute(userLocation);
+          },
+          (error) => {
+            if (showLoadingIndicator) {
+              const loadingIndicator = document.getElementById("loading");
+              loadingIndicator.style.display = "none";
             }
+            alert("Error getting your location: " + error.message);
+          }
+        );
+      } else {
+        if (showLoadingIndicator) {
+          const loadingIndicator = document.getElementById("loading");
+          loadingIndicator.style.display = "none";
         }
+        alert("Geolocation is not supported by your browser.");
+      }
+    }
 
-        function handleLocationError(error) {
-            console.error('Error getting location: ', error);
-            if (navigationActive) {
-                document.getElementById('startNavigation').innerText = 'Start Navigation';
-                navigationActive = false;
-                if (watchId) {
-                    navigator.geolocation.clearWatch(watchId);
-                    watchId = null;
-                }
-            }
-            let errorMessage = "Error getting location: ";
-            switch(error.code) {
-                case error.PERMISSION_DENIED:
-                    errorMessage += "User denied the request for Geolocation.";
-                    break;
-                case error.POSITION_UNAVAILABLE:
-                    errorMessage += "Location information is unavailable.";
-                    break;
-                case error.TIMEOUT:
-                    errorMessage += "The request to get user location timed out.";
-                    break;
-                case error.UNKNOWN_ERROR:
-                    errorMessage += "An unknown error occurred.";
-                    break;
-            }
-            alert(errorMessage);
-        }
+    function calculateRoute(origin) {
+      showLoading(true);
+      const request = {
+        origin: origin,
+        destination: destination,
+        waypoints: waypoints.map((waypoint) => ({
+          location: waypoint,
+          stopover: true,
+        })),
+        travelMode: google.maps.TravelMode[currentTravelMode],
+        optimizeWaypoints: true
+      };
 
-        // Get initial location and then initialize the map and route
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(initialLocation, handleLocationError);
+      directionsService.route(request, (result, status) => {
+        showLoading(false);
+        if (status === google.maps.DirectionsStatus.OK) {
+          directionsRenderer.setDirections(result);
+          currentRoute = result.routes[0];
+          
+          const bounds = result.routes[0].bounds;
+          map.fitBounds(bounds, {
+            padding: {
+              top: 50,
+              right: 50,
+              bottom: 50,
+              left: 50
+            }
+          });
+
+          displayRouteInfo(result);
+          updateNavigationInfo(result);
         } else {
-            alert("Geolocation is not supported by your browser.");
-            initMap(); // Fallback if geolocation fails
+          alert("Failed to calculate route: " + status);
         }
-    </script>
+      });
+    }
+
+    function displayRouteInfo(result) {
+      const route = result.routes[0];
+      const routePanel = document.getElementById("route-panel");
+      const routeDetails = document.getElementById("route-details");
+      const totalDistance = document.getElementById("total-distance");
+      const totalDuration = document.getElementById("total-duration");
+      const routeToggle = document.getElementById("route-toggle");
+
+      let distance = 0;
+      let duration = 0;
+      route.legs.forEach(leg => {
+        distance += leg.distance.value;
+        duration += leg.duration.value;
+      });
+
+      const distanceKm = (distance / 1000).toFixed(1);
+      const hours = Math.floor(duration / 3600);
+      const minutes = Math.floor((duration % 3600) / 60);
+
+      totalDistance.innerHTML = `<strong>Total Distance:</strong> ${distanceKm} km`;
+      totalDuration.innerHTML = `<strong>Estimated Time:</strong> ${hours}h ${minutes}min`;
+
+      routeDetails.innerHTML = '';
+
+      route.legs.forEach(leg => {
+        leg.steps.forEach(step => {
+          const stepDiv = document.createElement('div');
+          stepDiv.className = 'route-step';
+          
+          let icon = 'arrow_forward';
+          if (step.maneuver) {
+            if (step.maneuver.includes('left')) icon = 'turn_left';
+            if (step.maneuver.includes('right')) icon = 'turn_right';
+            if (step.maneuver.includes('uturn')) icon = 'u_turn_left';
+          }
+
+          stepDiv.innerHTML = `
+            <span class="material-icons step-icon">${icon}</span>
+            <div>
+              <div>${step.instructions}</div>
+              <div class="step-distance">${step.distance.text}</div>
+            </div>
+          `;
+          routeDetails.appendChild(stepDiv);
+        });
+      });
+
+      routeToggle.style.display = 'flex';
+    }
+
+    function startNavigationSimulation() {
+      if (!navigationActive && userLocation) {
+        navigationActive = true;
+        document.getElementById('startNavigation').style.display = 'none';
+        document.getElementById('stopNavigation').style.display = 'inline-block';
+        map.setZoom(18);
+
+        carMarker = new google.maps.Marker({
+          position: userLocation,
+          map: map,
+          icon: {
+            url: 'https://maps.gstatic.com/mapfiles/ms2/img/car_maps.png',
+            scaledSize: new google.maps.Size(30, 30),
+            rotation: 0
+          }
+        });
+
+        watchId = navigator.geolocation.watchPosition(
+          updateCarPosition,
+          handleLocationError,
+          {
+            enableHighAccuracy: true,
+            timeout: 5000,
+            maximumAge: 0
+          }
+        );
+
+        speak("Navigation started. Follow the route.");
+      } else if (!userLocation) {
+        alert("Please set a starting location first.");
+      }
+    }
+
+    function stopNavigationSimulation() {
+      if (navigationActive) {
+        navigationActive = false;
+        document.getElementById('startNavigation').style.display = 'inline-block';
+        document.getElementById('stopNavigation').style.display = 'none';
+        
+        if (watchId) {
+          navigator.geolocation.clearWatch(watchId);
+          watchId = null;
+        }
+        
+        if (carMarker) {
+          carMarker.setMap(null);
+          carMarker = null;
+        }
+
+        speak("Navigation stopped");
+      }
+    }
+
+    function updateCarPosition(position) {
+      if (navigationActive && carMarker) {
+        const currentLatLng = new google.maps.LatLng(
+          position.coords.latitude,
+          position.coords.longitude
+        );
+
+        carMarker.setPosition(currentLatLng);
+        map.setCenter(currentLatLng);
+
+        document.getElementById('speed').textContent = 
+          position.coords.speed ? (position.coords.speed * 3.6).toFixed(1) : '--';
+
+        if (previousPosition) {
+          const heading = google.maps.geometry.spherical.computeHeading(
+            previousPosition,
+            currentLatLng
+          );
+          
+          carMarker.setIcon({
+            url: 'https://maps.gstatic.com/mapfiles/ms2/img/car_maps.png',
+            scaledSize: new google.maps.Size(30, 30),
+            rotation: heading
+          });
+
+          checkUpcomingTurns(currentLatLng);
+        }
+
+        previousPosition = currentLatLng;
+      }
+    }
+
+    function checkUpcomingTurns(currentPosition) {
+      if (!currentRoute) return;
+
+      const path = currentRoute.overview_path;
+      let nearestPoint = null;
+      let minDistance = Infinity;
+
+      for (let i = 0; i < path.length; i++) {
+        const distance = google.maps.geometry.spherical.computeDistanceBetween(
+          currentPosition,
+          path[i]
+        );
+
+        if (distance < minDistance) {
+          minDistance = distance;
+          nearestPoint = path[i];
+        }
+      }
+
+      if (minDistance > 50) {
+        calculateRoute(currentPosition);
+      }
+    }
+
+    function updateNavigationInfo(route) {
+      if (route.legs && route.legs[0]) {
+        const leg = route.legs[0];
+        document.getElementById('distance').textContent = leg.distance.text;
+        document.getElementById('time').textContent = leg.duration.text;
+      }
+    }
+
+    function speak(text) {
+      if (speechSynthesis) {
+        const utterance = new SpeechSynthesisUtterance(text);
+        speechSynthesis.speak(utterance);
+      }
+    }
+
+    function showLoading(show) {
+      document.getElementById('loading').style.display = show ? 'block' : 'none';
+    }
+
+    function handleLocationError(error) {
+      console.error('Error getting location: ', error);
+      stopNavigationSimulation();
+      
+      let errorMessage = "Error getting location: ";
+      switch(error.code) {
+        case error.PERMISSION_DENIED:
+          errorMessage += "Please enable location services to use navigation.";
+          break;
+        case error.POSITION_UNAVAILABLE:
+          errorMessage += "Location information is unavailable.";
+          break;
+        case error.TIMEOUT:
+          errorMessage += "The request to get user location timed out.";
+          break;
+        default:
+          errorMessage += "An unknown error occurred.";
+      }
+      alert(errorMessage);
+    }
+
+    // Initialize the application
+    window.onload = function() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            userLocation = {
+              lat: position.coords.latitude,
+              lng: position.coords.longitude
+            };
+            initMap();
+          },
+          handleLocationError
+        );
+      } else {
+        alert("Geolocation is not supported by your browser.");
+        initMap();
+      }
+    };
+
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', () => {
+      if (watchId) {
+        navigator.geolocation.clearWatch(watchId);
+      }
+      if (speechSynthesis) {
+        speechSynthesis.cancel();
+      }
+    });
+  </script>
+
+  <!-- Load the Google Maps JavaScript API -->
+  <script
+    async
+    defer
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBCN_NsTb_psU3rjRw8t7-Pn7lcKJiut8w&libraries=places,geometry&callback=initMap"
+  ></script>
 </body>
-</html>
+</html> 
