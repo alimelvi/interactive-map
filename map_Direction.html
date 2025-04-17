@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Continuous Navigation with Speech</title>
+    <title>Simulated Navigation</title>
     <style>
         html, body {
             height: 100%;
@@ -12,173 +12,137 @@
             height: 80%;
             width: 100%;
         }
-        #info {
+        #controls {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 10;
+            background-color: rgba(255, 255, 255, 0.8);
             padding: 10px;
-            text-align: center;
-            height: 20%;
+            border-radius: 5px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 1em;
+            cursor: pointer;
         }
     </style>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBCN_NsTb_psU3rjRw8t7-Pn7lcKJiut8w&libraries=geometry&callback=initMap" async defer></script>
 </head>
 <body>
     <div id="map"></div>
-    <div id="info">
-        <p>Getting your location...</p>
-        <p id="waypoint-status"></p>
+    <div id="controls">
+        <button id="startNavigation">Start Navigation</button>
     </div>
 
     <script>
-        let waypoints = [
-            { name: "Point A", location: { lat: 36.67400826738863, lng: 74.84110423145616 }, reached: false },
-            { name: "Point B", location: { lat: 36.669110611911535, lng: 74.84088777764168 }, reached: false },
-            { name: "Destination", location: { lat: 36.66590496189394, lng: 74.84161750011629 }, reached: false }
-        ];
-        let currentWaypointIndex = 0;
         let map;
+        let carMarker;
         let directionsService;
         let directionsRenderer;
+        let routePath = [];
         let watchId;
-        const REACHED_THRESHOLD = 30; // Reduced for potentially closer waypoints
-        let currentRouteSteps = [];
-        let nextInstructionIndex = 0;
+        let navigationActive = false;
+        let previousPosition = null;
 
-        function speak(text) {
-            if ('speechSynthesis' in window) {
-                const utterance = new SpeechSynthesisUtterance(text);
-                window.speechSynthesis.speak(utterance);
-            } else {
-                console.log("Speech synthesis is not supported in this browser.");
-                document.getElementById('info').innerHTML += "<p>Speech synthesis is not supported in this browser.</p>";
-            }
-        }
+        // Define your waypoints here
+        const pointA = { lat: 36.676360283268124, lng: 74.84204535079336 };
+        const pointB = { lat: 36.67595657078645, lng: 74.84180405007768 };
+        //const pointC = { lat: 36.665904, lng: 74.841617 };
+        const finalDestination = { lat: 36.67541117805461, lng: 74.84172182247791 }; // Example
 
         function initMap() {
             map = new google.maps.Map(document.getElementById('map'), {
-                center: { lat: 31.5204, lng: 74.3587 },
-                zoom: 14
+                center: { lat: 31.5204, lng: 74.3587 }, // Initial view over Lahore
+                zoom: 12
             });
+
             directionsService = new google.maps.DirectionsService();
-            directionsRenderer = new google.maps.DirectionsRenderer({ map: map, suppressMarkers: true });
+            directionsRenderer = new google.maps.DirectionsRenderer({ map: map, suppressMarkers: true, polylineOptions: { strokeColor: 'blue', strokeWeight: 5 } });
 
-            document.getElementById('info').innerHTML = "<p>Getting your location...</p>";
+            const waypoints = [
+                { location: pointA },
+                { location: pointB },
+             //   { location: pointC }
+            ];
 
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(function(position) {
-                    document.getElementById('info').innerHTML = "<p>Location found. Starting navigation.</p>";
-                    navigateToNextWaypoint(position.coords.latitude, position.coords.longitude);
-                    watchId = navigator.geolocation.watchPosition(handlePositionUpdate, handleError, {
-                        enableHighAccuracy: true,
-                        timeout: 5000, // Reduced timeout for more frequent updates
-                        maximumAge: 0
-                    });
-                }, function(error) {
-                    handleLocationError(error);
-                });
-            } else {
-                document.getElementById('info').innerHTML = "<p>Geolocation is not supported by your browser.</p>";
-            }
-        }
-
-        function navigateToNextWaypoint(originLat, originLng) {
-            if (currentWaypointIndex < waypoints.length) {
-                let destination = waypoints[currentWaypointIndex].location;
-                directionsService.route({
-                    origin: { lat: originLat, lng: originLng },
-                    destination: destination,
-                    travelMode: google.maps.TravelMode.DRIVING
-                }, function(response, status) {
-                    if (status === google.maps.DirectionsStatus.OK) {
-                        directionsRenderer.setDirections(response);
-                        currentRouteSteps = response.routes[0].legs[0].steps;
-                        nextInstructionIndex = 0;
-
-                        new google.maps.Marker({
-                            position: destination,
-                            map: map,
-                            label: waypoints[currentWaypointIndex].name.charAt(0)
-                        });
-
-                        if (currentRouteSteps.length > 0 && nextInstructionIndex < currentRouteSteps.length) {
-                            speak(currentRouteSteps[nextInstructionIndex].instructions.replace(/<\/?[^>]+(>|$)/g, ""));
-                        }
-
-                    } else {
-                        document.getElementById('info').innerHTML = `<p>Directions request failed due to ${status}</p>`;
-                    }
-                });
-            }
-        }
-
-        function handlePositionUpdate(position) {
-            let userLat = position.coords.latitude;
-            let userLng = position.coords.longitude;
-            let currentWaypoint = waypoints[currentWaypointIndex];
-
-            if (currentWaypoint && !currentWaypoint.reached) {
-                document.getElementById('waypoint-status').innerText = `Navigating to: ${currentWaypoint.name}`;
-                if (isNearWaypoint(userLat, userLng, currentWaypoint.location.lat, currentWaypoint.location.lng, REACHED_THRESHOLD)) {
-                    waypoints[currentWaypointIndex].reached = true;
-                    document.getElementById('waypoint-status').innerText = `${currentWaypoint.name} reached!`;
-                    currentWaypointIndex++;
-                    if (currentWaypointIndex < waypoints.length) {
-                        navigateToNextWaypoint(userLat, userLng);
-                    } else {
-                        document.getElementById('info').innerHTML = "<p>Destination reached!</p>";
-                        document.getElementById('waypoint-status').innerText = "";
-                        navigator.geolocation.clearWatch(watchId);
-                        speak("You have reached your final destination.");
-                    }
+            directionsService.route({
+                origin: { lat: 31.5204, lng: 74.3587 }, // Initial origin (can be changed to user's location later)
+                destination: finalDestination,
+                waypoints: waypoints,
+                travelMode: google.maps.TravelMode.DRIVING
+            }, (response, status) => {
+                if (status === google.maps.DirectionsStatus.OK) {
+                    directionsRenderer.setDirections(response);
+                    routePath = response.routes[0].overview_path;
                 } else {
-                    // Try to provide turn-by-turn instructions based on proximity to the next step
-                    if (currentRouteSteps.length > 0 && nextInstructionIndex < currentRouteSteps.length) {
-                        const nextStep = currentRouteSteps[nextInstructionIndex].end_location;
-                        const distanceToNextStep = calculateDistance(userLat, userLng, nextStep.lat(), nextStep.lng());
+                    console.error('Directions request failed due to ' + status);
+                }
+            });
 
-                        if (distanceToNextStep < 20) { // Speak instruction when close to the next step
-                            nextInstructionIndex++;
-                            if (nextInstructionIndex < currentRouteSteps.length) {
-                                speak(currentRouteSteps[nextInstructionIndex].instructions.replace(/<\/?[^>]+(>|$)/g, ""));
-                            }
-                        } else if (distanceToNextStep < 100 && nextInstructionIndex < currentRouteSteps.length - 1) {
-                            // Optionally speak a "Prepare for" instruction for the step after the next
-                            const nextNextStepInstruction = currentRouteSteps[nextInstructionIndex + 1].instructions.replace(/<\/?[^>]+(>|$)/g, "");
-                            //speak(`Prepare to ${nextNextStepInstruction}`);
-                        }
-                    }
+            document.getElementById('startNavigation').addEventListener('click', startNavigationSimulation);
+        }
+
+        function startNavigationSimulation() {
+            if (!navigationActive) {
+                navigationActive = true;
+                document.getElementById('startNavigation').innerText = 'Navigating...';
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(initialLocation, handleLocationError);
+                } else {
+                    alert("Geolocation is not supported by your browser.");
                 }
             }
         }
 
-        function calculateDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371e3; // Radius of the Earth in meters
-            const dLat = toRadians(lat2 - lat1);
-            const dLon = toRadians(lon2 - lon1);
-            const a =
-                Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) *
-                Math.sin(dLon / 2) * Math.sin(dLon / 2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-            return R * c; // Distance in meters
+        function initialLocation(position) {
+            const initialLatLng = new google.maps.LatLng(position.coords.latitude, position.coords.longitude);
+            map.setCenter(initialLatLng);
+            map.setZoom(18);
+
+            carMarker = new google.maps.Marker({
+                position: initialLatLng,
+                map: map,
+                icon: {
+                    url: 'https://maps.gstatic.com/mapfiles/ms2/img/car_maps.png', // Or your custom car icon
+                    scaledSize: new google.maps.Size(30, 30)
+                }
+            });
+
+            watchId = navigator.geolocation.watchPosition(updateCarPosition, handleLocationError, {
+                enableHighAccuracy: true,
+                timeout: 5000,
+                maximumAge: 0
+            });
         }
 
-        function isNearWaypoint(lat1, lng1, lat2, lng2, radius) {
-            const R = 6371e3;
-            const φ1 = toRadians(lat1);
-            const φ2 = toRadians(lat2);
-            const Δφ = toRadians(lat2 - lat1);
-            const Δλ = toRadians(lng2 - lng1);
-            const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-                      Math.cos(φ1) * Math.cos(φ2) *
-                      Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-            const d = R * c;
-            return d <= radius;
-        }
+        function updateCarPosition(position) {
+            if (navigationActive && carMarker) {
+                const currentLatLng = new google.maps.LatLng(position.coords.latitude, position.coords.longitude);
+                carMarker.setPosition(currentLatLng);
+                map.setCenter(currentLatLng);
 
-        function toRadians(degrees) {
-            return degrees * Math.PI / 180;
+                if (previousPosition) {
+                    const heading = google.maps.geometry.spherical.computeHeading(
+                        previousPosition,
+                        currentLatLng
+                    );
+                    map.setHeading(heading);
+                }
+                previousPosition = currentLatLng;
+            }
         }
 
         function handleLocationError(error) {
+            console.error('Error getting location: ', error);
+            if (navigationActive) {
+                document.getElementById('startNavigation').innerText = 'Start Navigation';
+                navigationActive = false;
+                if (watchId) {
+                    navigator.geolocation.clearWatch(watchId);
+                    watchId = null;
+                }
+            }
             let errorMessage = "Error getting location: ";
             switch(error.code) {
                 case error.PERMISSION_DENIED:
@@ -194,9 +158,8 @@
                     errorMessage += "An unknown error occurred.";
                     break;
             }
-            document.getElementById('info').innerHTML = `<p>${errorMessage}</p>`;
+            alert(errorMessage);
         }
     </script>
-    <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBCN_NsTb_psU3rjRw8t7-Pn7lcKJiut8w&callback=initMap"></script>
 </body>
 </html>
