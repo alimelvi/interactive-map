@@ -61,27 +61,14 @@
             directionsService = new google.maps.DirectionsService();
             directionsRenderer = new google.maps.DirectionsRenderer({ map: map, suppressMarkers: true, polylineOptions: { strokeColor: 'blue', strokeWeight: 5 } });
 
-            document.getElementById('startNavigation').addEventListener('click', startNavigationSimulation);
-
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(initialMapSetupWithLocation, handleLocationError);
-            } else {
-                alert("Geolocation is not supported by your browser.");
-            }
-        }
-
-        function initialMapSetupWithLocation(position) {
-            initialUserLocation = new google.maps.LatLng(position.coords.latitude, position.coords.longitude);
-            map.setCenter(initialUserLocation);
-
             const waypoints = [
                 { location: pointA },
                 { location: pointB },
-          //      { location: pointC }
+            //    { location: pointC }
             ];
 
             directionsService.route({
-                origin: initialUserLocation,
+                origin: { lat: 31.5204, lng: 74.3587 }, // Initial origin (can be changed to user's location later if desired)
                 destination: finalDestination,
                 waypoints: waypoints,
                 travelMode: google.maps.TravelMode.DRIVING
@@ -93,6 +80,8 @@
                     console.error('Directions request failed due to ' + status);
                 }
             });
+
+            document.getElementById('startNavigation').addEventListener('click', startNavigationSimulation);
         }
 
         function startNavigationSimulation() {
@@ -105,8 +94,9 @@
                     position: initialUserLocation,
                     map: map,
                     icon: {
-                        url: 'https://images.vexels.com/media/users/3/137959/isolated/preview/d367f38fe5b41b46b2042e87abd235d6-car-bus-transport-icon.png',
-                        scaledSize: new google.maps.Size(30, 30)
+                        url: 'https://maps.gstatic.com/mapfiles/ms2/img/car_maps.png',
+                        scaledSize: new google.maps.Size(30, 30),
+                        rotation: 0 // Initial rotation
                     }
                 });
 
@@ -122,6 +112,12 @@
             }
         }
 
+        function initialLocation(position) {
+            initialUserLocation = new google.maps.LatLng(position.coords.latitude, position.coords.longitude);
+            map.setCenter(initialUserLocation);
+            startNavigationSimulation(); // Start navigation once initial location is known
+        }
+
         function updateCarPosition(position) {
             if (navigationActive && carMarker) {
                 const currentLatLng = new google.maps.LatLng(position.coords.latitude, position.coords.longitude);
@@ -134,6 +130,11 @@
                         currentLatLng
                     );
                     map.setHeading(heading);
+                    carMarker.setIcon({
+                        url: 'https://maps.gstatic.com/mapfiles/ms2/img/car_maps.png',
+                        scaledSize: new google.maps.Size(30, 30),
+                        rotation: heading
+                    });
                 }
                 previousPosition = currentLatLng;
             }
@@ -165,6 +166,14 @@
                     break;
             }
             alert(errorMessage);
+        }
+
+        // Get initial location and then initialize the map and route
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(initialLocation, handleLocationError);
+        } else {
+            alert("Geolocation is not supported by your browser.");
+            initMap(); // Fallback if geolocation fails
         }
     </script>
 </body>
