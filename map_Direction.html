@@ -181,7 +181,6 @@
     ];
     let currentTravelMode = 'DRIVING';
     let currentLocationMarker = null;
-    let trackLine = null;
     let carMarker = null;
     let navigationActive = false;
     let watchId = null;
@@ -190,12 +189,12 @@
     let speechSynthesis = window.speechSynthesis;
     let waypointMarkers = [];
     let destinationMarker = null;
-    let traveledPath = null;
     let autocomplete;
     let lastAnnouncedDistance = 0;
     let lastAnnouncedTurn = null;
     let currentStepIndex = 0;
     let lastHeading = 0;
+    let isFirstPosition = true;
 
     // Initialize the map
     function initMap() {
@@ -377,12 +376,6 @@
         }
       });
 
-      // Remove track line code as we don't want to show straight lines
-      if (trackLine) {
-        trackLine.setMap(null);
-        trackLine = null;
-      }
-
       // Immediately calculate the route when marker is updated
       calculateRoute(location);
     }
@@ -440,9 +433,16 @@
     function startNavigationSimulation() {
       if (!navigationActive && userLocation) {
         navigationActive = true;
+        isFirstPosition = true;
         document.getElementById('startNavigation').style.display = 'none';
         document.getElementById('stopNavigation').style.display = 'inline-block';
-        map.setZoom(18);
+        
+        // Set initial map properties for navigation
+        map.setOptions({
+          zoom: 18,
+          tilt: 45,
+          heading: 0
+        });
 
         carMarker = new google.maps.Marker({
           position: userLocation,
@@ -489,6 +489,12 @@
           carMarker = null;
         }
 
+        // Reset map orientation
+        map.setOptions({
+          tilt: 0,
+          heading: 0
+        });
+
         if (speechSynthesis) {
           const utterance = new SpeechSynthesisUtterance("Navigation stopped");
           speechSynthesis.speak(utterance);
@@ -524,14 +530,22 @@
             rotation: heading
           });
 
-          // Check if heading change is significant (more than 30 degrees)
-          if (Math.abs(heading - lastHeading) > 30) {
-            updateMapOrientation(heading);
-            lastHeading = heading;
-          }
+          // Update map orientation
+          updateMapOrientation(heading);
 
           // Update navigation guidance
           updateNavigationGuidance(currentLatLng);
+        } else if (isFirstPosition) {
+          // For the first position, set initial heading based on the first route step
+          if (currentRoute && currentRoute.legs && currentRoute.legs[0] && currentRoute.legs[0].steps[0]) {
+            const firstStep = currentRoute.legs[0].steps[0];
+            const heading = google.maps.geometry.spherical.computeHeading(
+              currentLatLng,
+              firstStep.end_location
+            );
+            updateMapOrientation(heading);
+          }
+          isFirstPosition = false;
         }
 
         previousPosition = currentLatLng;
@@ -540,8 +554,13 @@
 
     // Update map orientation based on heading
     function updateMapOrientation(heading) {
-      map.setHeading(heading);
-      map.setTilt(45);
+      // Rotate the map so that the heading is always pointing up (0 degrees)
+      // This means we need to rotate the map opposite to the heading
+      const rotation = (360 - heading) % 360;
+      map.setOptions({
+        heading: rotation,
+        tilt: 45
+      });
     }
 
     // Update navigation guidance
