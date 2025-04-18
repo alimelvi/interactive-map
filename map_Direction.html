@@ -192,6 +192,10 @@
     let destinationMarker = null;
     let traveledPath = null;
     let autocomplete;
+    let lastAnnouncedDistance = 0;
+    let lastAnnouncedTurn = null;
+    let currentStepIndex = 0;
+    let lastHeading = 0;
 
     // Initialize the map
     function initMap() {
@@ -203,14 +207,21 @@
           mapTypeControl: true,
           streetViewControl: false,
           zoomControl: true,
-          fullscreenControl: true
+          fullscreenControl: true,
+          heading: 0,
+          tilt: 0
         });
 
         // Initialize directions service and renderer
         directionsService = new google.maps.DirectionsService();
         directionsRenderer = new google.maps.DirectionsRenderer({
           map: map,
-          suppressMarkers: true
+          suppressMarkers: true,
+          polylineOptions: {
+            strokeColor: '#4285f4',
+            strokeWeight: 5,
+            strokeOpacity: 0.8
+          }
         });
 
         // Initialize the autocomplete for location search
@@ -286,7 +297,6 @@
           };
           document.getElementById("coordinates").textContent = "Current Location: Set";
           updateStartingLocationMarker(userLocation);
-          calculateRoute(userLocation);
         }
       });
 
@@ -322,7 +332,6 @@
             document.getElementById("location-search").value = '';
 
             updateStartingLocationMarker(userLocation);
-            calculateRoute(userLocation);
 
             if (showLoadingIndicator) {
               document.getElementById("loading").style.display = "none";
@@ -368,19 +377,14 @@
         }
       });
 
-      // Create or update track line
+      // Remove track line code as we don't want to show straight lines
       if (trackLine) {
         trackLine.setMap(null);
+        trackLine = null;
       }
 
-      trackLine = new google.maps.Polyline({
-        path: [location, waypoints[0]],
-        geodesic: true,
-        strokeColor: '#FF0000',
-        strokeOpacity: 1.0,
-        strokeWeight: 3,
-        map: map
-      });
+      // Immediately calculate the route when marker is updated
+      calculateRoute(location);
     }
 
     // Calculate route
@@ -396,12 +400,26 @@
           stopover: true
         })),
         travelMode: google.maps.TravelMode[currentTravelMode],
-        optimizeWaypoints: true
+        optimizeWaypoints: true,
+        provideRouteAlternatives: false,
+        avoidHighways: false,
+        avoidTolls: false
       };
 
       directionsService.route(request, (result, status) => {
         document.getElementById("loading").style.display = "none";
         if (status === google.maps.DirectionsStatus.OK) {
+          // Update the renderer options to show the route path
+          directionsRenderer.setOptions({
+            suppressMarkers: true,
+            preserveViewport: false,
+            polylineOptions: {
+              strokeColor: '#4285f4',
+              strokeWeight: 5,
+              strokeOpacity: 0.8
+            }
+          });
+          
           directionsRenderer.setDirections(result);
           currentRoute = result.routes[0];
           
@@ -489,6 +507,7 @@
         carMarker.setPosition(currentLatLng);
         map.setCenter(currentLatLng);
 
+        // Update speed display
         document.getElementById('speed').textContent = 
           position.coords.speed ? (position.coords.speed * 3.6).toFixed(1) : '--';
 
@@ -498,22 +517,162 @@
             currentLatLng
           );
           
+          // Update car marker rotation
           carMarker.setIcon({
             url: 'https://maps.gstatic.com/mapfiles/ms2/micons/cabs.png',
-            scaledSize: new google.maps.Size(24, 24)
+            scaledSize: new google.maps.Size(24, 24),
+            rotation: heading
           });
+
+          // Check if heading change is significant (more than 30 degrees)
+          if (Math.abs(heading - lastHeading) > 30) {
+            updateMapOrientation(heading);
+            lastHeading = heading;
+          }
+
+          // Update navigation guidance
+          updateNavigationGuidance(currentLatLng);
         }
 
         previousPosition = currentLatLng;
       }
     }
 
-    // Update navigation info
+    // Update map orientation based on heading
+    function updateMapOrientation(heading) {
+      map.setHeading(heading);
+      map.setTilt(45);
+    }
+
+    // Update navigation guidance
+    function updateNavigationGuidance(currentPosition) {
+      if (!currentRoute || !currentRoute.legs || !currentRoute.legs[0]) return;
+
+      const legs = currentRoute.legs;
+      let currentLeg = 0;
+      let stepIndexInLeg = 0;
+      let totalStepsPassed = 0;
+      let foundCurrentPosition = false;
+
+      // Find current leg and step
+      for (let i = 0; i < legs.length && !foundCurrentPosition; i++) {
+        const leg = legs[i];
+        for (let j = 0; j < leg.steps.length; j++) {
+          const step = leg.steps[j];
+          const distanceToStep = google.maps.geometry.spherical.computeDistanceBetween(
+            currentPosition,
+            step.start_location
+          );
+          if (distanceToStep < 50) { // Within 50 meters of step
+            currentLeg = i;
+            stepIndexInLeg = j;
+            foundCurrentPosition = true;
+            break;
+          }
+          totalStepsPassed++;
+        }
+      }
+
+      if (!foundCurrentPosition) return;
+
+      const currentStep = legs[currentLeg].steps[stepIndexInLeg];
+      const nextStep = stepIndexInLeg + 1 < legs[currentLeg].steps.length ? 
+        legs[currentLeg].steps[stepIndexInLeg + 1] : 
+        (currentLeg + 1 < legs.length ? legs[currentLeg + 1].steps[0] : null);
+
+      if (!currentStep) return;
+
+      // Calculate distance to next step
+      const distanceToNextStep = google.maps.geometry.spherical.computeDistanceBetween(
+        currentPosition,
+        currentStep.end_location
+      );
+
+      // Announce distance to next turn
+      if (distanceToNextStep < 100 && distanceToNextStep > 50 && lastAnnouncedDistance !== 100) {
+        announceDistance(100);
+      } else if (distanceToNextStep < 50 && distanceToNextStep > 20 && lastAnnouncedDistance !== 50) {
+        announceDistance(50);
+      } else if (distanceToNextStep < 20 && lastAnnouncedDistance !== 20) {
+        announceDistance(20);
+      }
+
+      // Announce turn instructions
+      if (distanceToNextStep < 20 && nextStep && lastAnnouncedTurn !== totalStepsPassed) {
+        announceTurn(nextStep);
+        lastAnnouncedTurn = totalStepsPassed;
+        document.getElementById('nextTurn').textContent = nextStep.instructions.replace(/<[^>]*>/g, '');
+      }
+    }
+
+    // Announce distance to next turn
+    function announceDistance(distance) {
+      if (speechSynthesis) {
+        const utterance = new SpeechSynthesisUtterance(`${distance} meters to next turn`);
+        speechSynthesis.speak(utterance);
+        lastAnnouncedDistance = distance;
+      }
+    }
+
+    // Announce turn instructions
+    function announceTurn(step) {
+      if (speechSynthesis) {
+        const instruction = step.instructions.replace(/<[^>]*>/g, '');
+        const utterance = new SpeechSynthesisUtterance(instruction);
+        speechSynthesis.speak(utterance);
+      }
+    }
+
+    // Update navigation info with route distance
     function updateNavigationInfo(result) {
       if (result.routes && result.routes[0] && result.routes[0].legs) {
-        const leg = result.routes[0].legs[0];
-        document.getElementById('distance').textContent = leg.distance.text;
-        document.getElementById('time').textContent = leg.duration.text;
+        let totalDistance = 0;
+        let totalDuration = 0;
+
+        // Calculate total distance and duration by summing up all route legs
+        result.routes[0].legs.forEach(leg => {
+          totalDistance += leg.distance.value;
+          totalDuration += leg.duration.value;
+        });
+
+        // Convert to readable format
+        const distanceText = formatDistance(totalDistance);
+        const durationText = formatDuration(totalDuration);
+
+        document.getElementById('distance').textContent = distanceText;
+        document.getElementById('time').textContent = durationText;
+
+        // Update next turn information
+        if (result.routes[0].legs[0].steps && result.routes[0].legs[0].steps.length > 0) {
+          const nextStep = result.routes[0].legs[0].steps[0];
+          document.getElementById('nextTurn').textContent = nextStep.instructions.replace(/<[^>]*>/g, '');
+        }
+
+        // Reset navigation guidance variables when route changes
+        currentStepIndex = 0;
+        lastAnnouncedDistance = 0;
+        lastAnnouncedTurn = null;
+      }
+    }
+
+    // Format distance in meters/kilometers
+    function formatDistance(meters) {
+      if (meters < 1000) {
+        return `${meters} meters`;
+      } else {
+        return `${(meters / 1000).toFixed(1)} km`;
+      }
+    }
+
+    // Format duration in minutes/hours
+    function formatDuration(seconds) {
+      const minutes = Math.floor(seconds / 60);
+      if (minutes < 60) {
+        return `${minutes} minutes`;
+      } else {
+        const hours = Math.floor(minutes / 60);
+        const remainingMinutes = minutes % 60;
+        return `${hours} hour${hours > 1 ? 's' : ''} ${remainingMinutes} minutes`;
       }
     }
 
