@@ -115,6 +115,18 @@
     .material-icons {
       font-size: 18px;
     }
+    #compass {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      background: white;
+      padding: 10px;
+      border-radius: 50%;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      z-index: 2;
+      transform: rotate(0deg);
+      transition: transform 0.3s ease;
+    }
   </style>
 </head>
 <body>
@@ -159,6 +171,10 @@
     <div class="info-item">Estimated time: <span id="time">--</span></div>
     <div class="info-item">Current speed: <span id="speed">--</span> km/h</div>
     <div class="info-item">Next turn: <span id="nextTurn">--</span></div>
+  </div>
+
+  <div id="compass">
+    <span class="material-icons">navigation</span>
   </div>
 
   <div id="loading" class="loading">Loading map...</div>
@@ -208,7 +224,8 @@
           zoomControl: true,
           fullscreenControl: true,
           heading: 0,
-          tilt: 0
+          tilt: 0,
+          gestureHandling: 'greedy'
         });
 
         // Initialize directions service and renderer
@@ -441,7 +458,8 @@
         map.setOptions({
           zoom: 18,
           tilt: 45,
-          heading: 0
+          heading: 0,
+          gestureHandling: 'greedy'
         });
 
         carMarker = new google.maps.Marker({
@@ -523,15 +541,11 @@
             currentLatLng
           );
           
-          // Update car marker rotation
-          carMarker.setIcon({
-            url: 'https://maps.gstatic.com/mapfiles/ms2/micons/cabs.png',
-            scaledSize: new google.maps.Size(24, 24),
-            rotation: heading
-          });
-
-          // Update map orientation
-          updateMapOrientation(heading);
+          // Only update if heading change is significant
+          if (Math.abs(heading - lastHeading) > 5) {
+            updateMapOrientation(heading);
+            lastHeading = heading;
+          }
 
           // Update navigation guidance
           updateNavigationGuidance(currentLatLng);
@@ -554,13 +568,30 @@
 
     // Update map orientation based on heading
     function updateMapOrientation(heading) {
-      // Rotate the map so that the heading is always pointing up (0 degrees)
-      // This means we need to rotate the map opposite to the heading
-      const rotation = (360 - heading) % 360;
+      // Normalize the heading to be between 0 and 360
+      const normalizedHeading = ((heading % 360) + 360) % 360;
+      
+      // Calculate the map rotation needed to keep the direction pointing up
+      // We need to rotate the map in the opposite direction of the heading
+      const mapRotation = (360 - normalizedHeading) % 360;
+      
+      // Update the map orientation
       map.setOptions({
-        heading: rotation,
+        heading: mapRotation,
         tilt: 45
       });
+
+      // Update the car marker rotation to match the actual heading
+      if (carMarker) {
+        carMarker.setIcon({
+          url: 'https://maps.gstatic.com/mapfiles/ms2/micons/cabs.png',
+          scaledSize: new google.maps.Size(24, 24),
+          rotation: normalizedHeading
+        });
+      }
+
+      // Update compass rotation
+      document.getElementById('compass').style.transform = `rotate(${normalizedHeading}deg)`;
     }
 
     // Update navigation guidance
@@ -607,27 +638,39 @@
         currentStep.end_location
       );
 
-      // Announce distance to next turn
-      if (distanceToNextStep < 100 && distanceToNextStep > 50 && lastAnnouncedDistance !== 100) {
-        announceDistance(100);
-      } else if (distanceToNextStep < 50 && distanceToNextStep > 20 && lastAnnouncedDistance !== 50) {
-        announceDistance(50);
-      } else if (distanceToNextStep < 20 && lastAnnouncedDistance !== 20) {
-        announceDistance(20);
+      // Update next turn information display
+      if (nextStep) {
+        document.getElementById('nextTurn').textContent = nextStep.instructions.replace(/<[^>]*>/g, '');
       }
 
-      // Announce turn instructions
-      if (distanceToNextStep < 20 && nextStep && lastAnnouncedTurn !== totalStepsPassed) {
-        announceTurn(nextStep);
-        lastAnnouncedTurn = totalStepsPassed;
-        document.getElementById('nextTurn').textContent = nextStep.instructions.replace(/<[^>]*>/g, '');
+      // Enhanced turn-by-turn guidance
+      if (nextStep) {
+        // Announce upcoming turn at appropriate distances
+        if (distanceToNextStep < 300 && distanceToNextStep > 200 && lastAnnouncedDistance !== 300) {
+          announceUpcomingTurn(nextStep, 300);
+        } else if (distanceToNextStep < 200 && distanceToNextStep > 100 && lastAnnouncedDistance !== 200) {
+          announceUpcomingTurn(nextStep, 200);
+        } else if (distanceToNextStep < 100 && distanceToNextStep > 50 && lastAnnouncedDistance !== 100) {
+          announceUpcomingTurn(nextStep, 100);
+        } else if (distanceToNextStep < 50 && distanceToNextStep > 20 && lastAnnouncedDistance !== 50) {
+          announceUpcomingTurn(nextStep, 50);
+        } else if (distanceToNextStep < 20 && lastAnnouncedDistance !== 20) {
+          announceUpcomingTurn(nextStep, 20);
+        }
+
+        // Announce when to make the turn
+        if (distanceToNextStep < 20 && lastAnnouncedTurn !== totalStepsPassed) {
+          announceTurn(nextStep);
+          lastAnnouncedTurn = totalStepsPassed;
+        }
       }
     }
 
-    // Announce distance to next turn
-    function announceDistance(distance) {
+    // Announce upcoming turn with distance
+    function announceUpcomingTurn(step, distance) {
       if (speechSynthesis) {
-        const utterance = new SpeechSynthesisUtterance(`${distance} meters to next turn`);
+        const instruction = step.instructions.replace(/<[^>]*>/g, '');
+        const utterance = new SpeechSynthesisUtterance(`In ${distance} meters, ${instruction}`);
         speechSynthesis.speak(utterance);
         lastAnnouncedDistance = distance;
       }
