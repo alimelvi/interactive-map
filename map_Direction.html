@@ -132,12 +132,12 @@
 <body>
   <div id="map"></div>
   <div id="controls">
-    <input 
-      id="location-search" 
-      type="text" 
-      placeholder="Enter a starting location"
-      autocomplete="off"
-    >
+      <input 
+        id="location-search" 
+        type="text" 
+        placeholder="Enter a starting location"
+        autocomplete="off"
+      >
     <div id="coordinates">Current Location: Fetching...</div>
     <div class="button-container">
       <button id="useLocation">
@@ -462,6 +462,9 @@
           gestureHandling: 'greedy'
         });
 
+        // Center the map on the user's location
+        map.setCenter(userLocation);
+
         carMarker = new google.maps.Marker({
           position: userLocation,
           map: map,
@@ -575,10 +578,11 @@
       // We need to rotate the map in the opposite direction of the heading
       const mapRotation = (360 - normalizedHeading) % 360;
       
-      // Update the map orientation
+      // Update the map orientation with smooth transition
       map.setOptions({
         heading: mapRotation,
-        tilt: 45
+        tilt: 45,
+        gestureHandling: 'greedy'
       });
 
       // Update the car marker rotation to match the actual heading
@@ -625,42 +629,57 @@
 
       if (!foundCurrentPosition) return;
 
-      const currentStep = legs[currentLeg].steps[stepIndexInLeg];
-      const nextStep = stepIndexInLeg + 1 < legs[currentLeg].steps.length ? 
-        legs[currentLeg].steps[stepIndexInLeg + 1] : 
-        (currentLeg + 1 < legs.length ? legs[currentLeg + 1].steps[0] : null);
-
-      if (!currentStep) return;
-
-      // Calculate distance to next step
-      const distanceToNextStep = google.maps.geometry.spherical.computeDistanceBetween(
-        currentPosition,
-        currentStep.end_location
-      );
-
-      // Update next turn information display
-      if (nextStep) {
-        document.getElementById('nextTurn').textContent = nextStep.instructions.replace(/<[^>]*>/g, '');
+      // Get all remaining steps in the route
+      let remainingSteps = [];
+      for (let i = currentLeg; i < legs.length; i++) {
+        const leg = legs[i];
+        const startIndex = (i === currentLeg) ? stepIndexInLeg : 0;
+        for (let j = startIndex; j < leg.steps.length; j++) {
+          remainingSteps.push(leg.steps[j]);
+        }
       }
 
-      // Enhanced turn-by-turn guidance
-      if (nextStep) {
-        // Announce upcoming turn at appropriate distances
-        if (distanceToNextStep < 300 && distanceToNextStep > 200 && lastAnnouncedDistance !== 300) {
-          announceUpcomingTurn(nextStep, 300);
-        } else if (distanceToNextStep < 200 && distanceToNextStep > 100 && lastAnnouncedDistance !== 200) {
-          announceUpcomingTurn(nextStep, 200);
-        } else if (distanceToNextStep < 100 && distanceToNextStep > 50 && lastAnnouncedDistance !== 100) {
-          announceUpcomingTurn(nextStep, 100);
-        } else if (distanceToNextStep < 50 && distanceToNextStep > 20 && lastAnnouncedDistance !== 50) {
-          announceUpcomingTurn(nextStep, 50);
-        } else if (distanceToNextStep < 20 && lastAnnouncedDistance !== 20) {
-          announceUpcomingTurn(nextStep, 20);
+      // Find the next significant turn (not just a waypoint)
+      let nextTurnStep = null;
+      for (let i = 0; i < remainingSteps.length; i++) {
+        const step = remainingSteps[i];
+        // Check if this is a significant turn (not just continuing straight)
+        if (step.instructions.toLowerCase().includes('turn') || 
+            step.instructions.toLowerCase().includes('left') || 
+            step.instructions.toLowerCase().includes('right') ||
+            step.instructions.toLowerCase().includes('merge') ||
+            step.instructions.toLowerCase().includes('exit')) {
+          nextTurnStep = step;
+          break;
+        }
+      }
+
+      if (nextTurnStep) {
+        // Calculate distance to the next significant turn
+        const distanceToNextTurn = google.maps.geometry.spherical.computeDistanceBetween(
+          currentPosition,
+          nextTurnStep.start_location
+        );
+
+        // Update next turn information display
+        document.getElementById('nextTurn').textContent = nextTurnStep.instructions.replace(/<[^>]*>/g, '');
+
+        // Enhanced turn-by-turn guidance for significant turns
+        if (distanceToNextTurn < 300 && distanceToNextTurn > 200 && lastAnnouncedDistance !== 300) {
+          announceUpcomingTurn(nextTurnStep, 300);
+        } else if (distanceToNextTurn < 200 && distanceToNextTurn > 100 && lastAnnouncedDistance !== 200) {
+          announceUpcomingTurn(nextTurnStep, 200);
+        } else if (distanceToNextTurn < 100 && distanceToNextTurn > 50 && lastAnnouncedDistance !== 100) {
+          announceUpcomingTurn(nextTurnStep, 100);
+        } else if (distanceToNextTurn < 50 && distanceToNextTurn > 20 && lastAnnouncedDistance !== 50) {
+          announceUpcomingTurn(nextTurnStep, 50);
+        } else if (distanceToNextTurn < 20 && lastAnnouncedDistance !== 20) {
+          announceUpcomingTurn(nextTurnStep, 20);
         }
 
         // Announce when to make the turn
-        if (distanceToNextStep < 20 && lastAnnouncedTurn !== totalStepsPassed) {
-          announceTurn(nextStep);
+        if (distanceToNextTurn < 20 && lastAnnouncedTurn !== totalStepsPassed) {
+          announceTurn(nextTurnStep);
           lastAnnouncedTurn = totalStepsPassed;
         }
       }
