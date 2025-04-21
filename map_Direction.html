@@ -353,7 +353,7 @@
                 orientationLocked ? 'Direction Up' : 'North Up';
 
             if (orientationLocked && lastHeading !== null) {
-                updateMapOrientation(lastHeading);
+                updateMapOrientationBasedOnRoute();
             } else {
                 map.setOptions({
                     heading: 0,
@@ -394,7 +394,7 @@
                     },
                     {
                         enableHighAccuracy: true,
-                        timeout: 10000,
+                        timeout: 5000,
                         maximumAge: 0
                     }
                 );
@@ -502,7 +502,8 @@
                     map: map,
                     icon: {
                         url: 'https://maps.gstatic.com/mapfiles/ms2/micons/cabs.png',
-                        scaledSize: new google.maps.Size(24, 24)
+                        scaledSize: new google.maps.Size(24, 24),
+                        anchor: new google.maps.Point(12, 20) // Adjust anchor for better visual rotation
                     }
                 });
 
@@ -572,45 +573,75 @@
                 position.coords.speed ? (position.coords.speed * 3.6).toFixed(1) : '--';
 
             // Calculate heading if we have previous position
-            if (previousPosition) {
+            if (previousPosition && position.coords.speed > 0.5) { // Only update heading if moving
                 const heading = google.maps.geometry.spherical.computeHeading(
                     previousPosition,
                     currentLatLng
                 );
-
-                // Only update if heading change is significant (> 3 degrees)
-                if (Math.abs(heading - lastHeading) > 3) {
-                    updateMapOrientation(heading);
-                    lastHeading = heading;
-                }
-            }
-            // For first position, use compass heading if available
-            else if (position.coords.heading) {
-                updateMapOrientation(position.coords.heading);
+                lastHeading = heading;
+            } else if (position.coords.heading && position.coords.accuracy < 20) { // Use GPS heading if available and accurate
                 lastHeading = position.coords.heading;
             }
 
             previousPosition = currentLatLng;
             updateNavigationGuidance(currentLatLng);
+            if (orientationLocked) {
+                updateMapOrientationBasedOnRoute(currentLatLng);
+            }
         }
 
-        // Update map orientation based on heading
-        function updateMapOrientation(heading) {
-            if (!navigationActive || !orientationLocked) return;
+        // Update map orientation based on the next route step
+        function updateMapOrientationBasedOnRoute(currentPosition) {
+            if (!navigationActive || !orientationLocked || !currentRoute || !currentRoute.legs || currentRoute.legs.length === 0) return;
 
-            // Calculate the map rotation needed to keep direction of travel upward
-            // We subtract the heading because map rotation is counter-clockwise
-            const mapRotation = (360 - heading) % 360;
+            let nextStepLocation = null;
+            let currentLegIndex = 0;
+            let currentStepIndexInLeg = 0;
+            let foundNextStep = false;
 
-            // Apply smooth transition to the map
-            map.setOptions({
-                heading: mapRotation,
-                tilt: 45,  // Slight tilt for better 3D perspective
-                gestureHandling: 'greedy'
-            });
+            for (let i = 0; i < currentRoute.legs.length; i++) {
+                const leg = currentRoute.legs[i];
+                for (let j = 0; j < leg.steps.length; j++) {
+                    const step = leg.steps[j];
+                    const distanceToStepStart = google.maps.geometry.spherical.computeDistanceBetween(currentPosition, step.start_location);
+                    if (distanceToStepStart < 50) { // Consider we've reached this step, look at the next
+                        if (leg.steps[j + 1]) {
+                            nextStepLocation = leg.steps[j + 1].start_location;
+                            foundNextStep = true;
+                            break;
+                        } else if (currentRoute.legs[i + 1] && currentRoute.legs[i + 1].steps[0]) {
+                            nextStepLocation = currentRoute.legs[i + 1].steps[0].start_location;
+                            foundNextStep = true;
+                            break;
+                        }
+                    } else if (!foundNextStep) {
+                        nextStepLocation = step.start_location; // Orient towards the start of the current/next step
+                        foundNextStep = true;
+                        break;
+                    }
+                }
+                if (foundNextStep) break;
+            }
 
-            // Update compass to show true north regardless of map rotation
-            document.getElementById('compass').style.transform = `rotate(${heading}deg)`;
+            if (nextStepLocation) {
+                const bearing = google.maps.geometry.spherical.computeHeading(currentPosition, nextStepLocation);
+                const mapRotation = (360 - bearing) % 360;
+                map.setOptions({
+                    heading: mapRotation,
+                    tilt: 45,
+                    gestureHandling: 'greedy'
+                });
+                document.getElementById('compass').style.transform = `rotate(${bearing}deg)`;
+            } else if (lastHeading !== null) {
+                // Fallback to GPS heading if no next step is clearly defined
+                const mapRotation = (360 - lastHeading) % 360;
+                map.setOptions({
+                    heading: mapRotation,
+                    tilt: 45,
+                    gestureHandling: 'greedy'
+                });
+                document.getElementById('compass').style.transform = `rotate(${lastHeading}deg)`;
+            }
         }
 
         // Update navigation guidance
@@ -632,7 +663,7 @@
                         currentPosition,
                         step.start_location
                     );
-                    if (distanceToStep < 50) { // Within 50 meters of step
+                    if (distanceToStep < 20) { // Closer to consider it the current step
                         currentLeg = i;
                         stepIndexInLeg = j;
                         foundCurrentPosition = true;
@@ -642,75 +673,63 @@
                 }
             }
 
-            if (!foundCurrentPosition) return;
-
-            // Get all remaining steps in the route
-            let remainingSteps = [];
-            for (let i = currentLeg; i < legs.length; i++) {
-                const leg = legs[i];
-                const startIndex = (i === currentLeg) ? stepIndexInLeg : 0;
-                for (let j = startIndex; j < leg.steps.length; j++) {
-                    remainingSteps.push(leg.steps[j]);
-                }
+            if (!foundCurrentPosition && currentRoute.legs.length > 0) {
+                // As a fallback, consider the first step of the first leg
+                currentLeg = 0;
+                stepIndexInLeg = 0;
             }
 
-            // Find the next significant turn
-            let nextTurnStep = null;
-            for (let i = 0; i < remainingSteps.length; i++) {
-                const step = remainingSteps[i];
-                if (step.instructions.toLowerCase().includes('turn') ||
-                    step.instructions.toLowerCase().includes('left') ||
-                    step.instructions.toLowerCase().includes('right') ||
-                    step.instructions.toLowerCase().includes('merge') ||
-                    step.instructions.toLowerCase().includes('exit')) {
-                    nextTurnStep = step;
+            if (currentRoute && currentRoute.legs[currentLeg] && currentRoute.legs[currentLeg].steps[stepIndexInLeg]) {
+                const currentStep = currentRoute.legs[currentLeg].steps[stepIndexInLeg];
+                document.getElementById('nextTurn').textContent = currentStep.instructions.replace(/<[^>]*>/g, '');
+
+                // Implement more sophisticated turn announcements based on distance and step changes
+                const nextSignificantStep = findNextSignificantTurnStep(currentPosition, currentRoute.legs, currentLeg, stepIndexInLeg);
+                if (nextSignificantStep) {
+                    const distanceToNextTurn = google.maps.geometry.spherical.computeDistanceBetween(currentPosition, nextSignificantStep.step.start_location);
+                    announceTurns(nextSignificantStep.step, distanceToNextTurn, totalStepsPassed);
+                }
+            }
+        }
+
+        function findNextSignificantTurnStep(currentPosition, legs, currentLegIndex, currentStepIndexInLeg) {
+            for (let i = currentLegIndex; i < legs.length; i++) {
+                const leg = legs[i];
+                const startStepIndex = (i === currentLegIndex) ? currentStepIndexInLeg : 0;
+                for (let j = startStepIndex; j < leg.steps.length; j++) {
+                    const step = leg.steps[j];
+                    if (step.instructions.toLowerCase().includes('turn') ||
+                        step.instructions.toLowerCase().includes('left') ||
+                        step.instructions.toLowerCase().includes('right') ||
+                        step.instructions.toLowerCase().includes('merge') ||
+                        step.instructions.toLowerCase().includes('exit') ||
+                        step.maneuver) { // 'maneuver' often indicates a significant action
+                        const distanceToStep = google.maps.geometry.spherical.computeDistanceBetween(currentPosition, step.start_location);
+                        return { step: step, index: (i > currentLegIndex ? 0 : j) };
+                    }
+                }
+            }
+            return null;
+        }
+
+        let lastAnnouncement = { instruction: null, distanceThreshold: null };
+
+        function announceTurns(step, distanceToTurn, currentTotalSteps) {
+            const instruction = step.instructions.replace(/<[^>]*>/g, '');
+            const thresholds = [200, 100, 50, 20];
+
+            for (const threshold of thresholds) {
+                if (distanceToTurn < threshold && (lastAnnouncement.instruction !== instruction || lastAnnouncement.distanceThreshold !== threshold)) {
+                    if (speechSynthesis) {
+                        const utterance = new SpeechSynthesisUtterance((threshold > 20 ? `In ${threshold} meters, ` : '') + instruction);
+                        speechSynthesis.speak(utterance);
+                        lastAnnouncement = { instruction: instruction, distanceThreshold: threshold };
+                    }
                     break;
                 }
             }
-
-            if (nextTurnStep) {
-                const distanceToNextTurn = google.maps.geometry.spherical.computeDistanceBetween(
-                    currentPosition,
-                    nextTurnStep.start_location
-                );
-
-                document.getElementById('nextTurn').textContent = nextTurnStep.instructions.replace(/<[^>]*>/g, '');
-
-                if (distanceToNextTurn < 300 && distanceToNextTurn > 200 && lastAnnouncedDistance !== 300) {
-                    announceUpcomingTurn(nextTurnStep, 300);
-                } else if (distanceToNextTurn < 200 && distanceToNextTurn > 100 && lastAnnouncedDistance !== 200) {
-                    announceUpcomingTurn(nextTurnStep, 200);
-                } else if (distanceToNextTurn < 100 && distanceToNextTurn > 50 && lastAnnouncedDistance !== 100) {
-                    announceUpcomingTurn(nextTurnStep, 100);
-                } else if (distanceToNextTurn < 50 && distanceToNextTurn > 20 && lastAnnouncedDistance !== 50) {
-                    announceUpcomingTurn(nextTurnStep, 50);
-                } else if (distanceToNextTurn < 20 && lastAnnouncedDistance !== 20) {
-                    announceUpcomingTurn(nextTurnStep, 20);
-                }
-
-                if (distanceToNextTurn < 20 && lastAnnouncedTurn !== totalStepsPassed) {
-                    announceTurn(nextTurnStep);
-                    lastAnnouncedTurn = totalStepsPassed;
-                }
-            }
-        }
-
-        // Announce upcoming turn with distance
-        function announceUpcomingTurn(step, distance) {
-            if (speechSynthesis) {
-                const instruction = step.instructions.replace(/<[^>]*>/g, '');
-                const utterance = new SpeechSynthesisUtterance(`In ${distance} meters, ${instruction}`);
-                speechSynthesis.speak(utterance);
-                lastAnnouncedDistance = distance;
-            }
-        }
-
-        // Announce turn instructions
-        function announceTurn(step) {
-            if (speechSynthesis) {
-                const instruction = step.instructions.replace(/<[^>]*>/g, '');
-                const utterance = new SpeechSynthesisUtterance(instruction);
-                speechSynthesis.speak(utterance);
+            if (distanceToTurn > 250) {
+                lastAnnouncement = { instruction: null, distanceThreshold: null }; // Reset announcements if far
             }
         }
 
