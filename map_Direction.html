@@ -127,6 +127,19 @@
       transform: rotate(0deg);
       transition: transform 0.3s ease;
     }
+    #orientationToggle {
+      position: absolute;
+      top: 70px;
+      right: 20px;
+      background: white;
+      padding: 10px;
+      border-radius: 50%;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
   </style>
 </head>
 <body>
@@ -174,8 +187,13 @@
   </div>
 
   <div id="compass">
-    <span class="material-icons">navigation</span>
+    <span class="material-icons">explore</span>
   </div>
+
+  <button id="orientationToggle">
+    <span class="material-icons">navigation</span>
+    <span id="orientationText">North Up</span>
+  </button>
 
   <div id="loading" class="loading">Loading map...</div>
 
@@ -189,7 +207,6 @@
     let directionsService;
     let directionsRenderer;
     let userLocation = null;
-    // Initialize destination and waypoints with example coordinates
     let destination = { lat: 36.673650425129885, lng: 74.84089646369341 };
     let waypoints = [
       { lat: 36.67581722575873, lng: 74.84178710801044 },
@@ -211,6 +228,7 @@
     let currentStepIndex = 0;
     let lastHeading = 0;
     let isFirstPosition = true;
+    let orientationLocked = false;
 
     // Initialize the map
     function initMap() {
@@ -302,6 +320,7 @@
       document.getElementById("useLocation").addEventListener("click", () => fetchUserLocation(true));
       document.getElementById("startNavigation").addEventListener("click", startNavigationSimulation);
       document.getElementById("stopNavigation").addEventListener("click", stopNavigationSimulation);
+      document.getElementById("orientationToggle").addEventListener("click", toggleOrientation);
 
       // Add location search listener
       autocomplete.addListener('place_changed', () => {
@@ -327,6 +346,22 @@
           }
         });
       });
+    }
+
+    // Toggle orientation lock
+    function toggleOrientation() {
+      orientationLocked = !orientationLocked;
+      document.getElementById("orientationText").textContent = 
+        orientationLocked ? 'Direction Up' : 'North Up';
+      
+      if (orientationLocked && lastHeading !== null) {
+        updateMapOrientation(lastHeading);
+      } else {
+        map.setOptions({
+          heading: 0,
+          tilt: 0
+        });
+      }
     }
 
     // Fetch user's location
@@ -419,7 +454,6 @@
       directionsService.route(request, (result, status) => {
         document.getElementById("loading").style.display = "none";
         if (status === google.maps.DirectionsStatus.OK) {
-          // Update the renderer options to show the route path
           directionsRenderer.setOptions({
             suppressMarkers: true,
             preserveViewport: false,
@@ -525,77 +559,69 @@
 
     // Update car position
     function updateCarPosition(position) {
-      if (navigationActive && carMarker) {
-        const currentLatLng = new google.maps.LatLng(
-          position.coords.latitude,
-          position.coords.longitude
+      if (!navigationActive || !carMarker) return;
+
+      const currentLatLng = new google.maps.LatLng(
+        position.coords.latitude,
+        position.coords.longitude
+      );
+
+      carMarker.setPosition(currentLatLng);
+      map.setCenter(currentLatLng);
+
+      // Update speed display
+      document.getElementById('speed').textContent = 
+        position.coords.speed ? (position.coords.speed * 3.6).toFixed(1) : '--';
+
+      // Calculate heading if we have previous position
+      if (previousPosition) {
+        const heading = google.maps.geometry.spherical.computeHeading(
+          previousPosition,
+          currentLatLng
         );
-
-        carMarker.setPosition(currentLatLng);
-        map.setCenter(currentLatLng);
-
-        // Update speed display
-        document.getElementById('speed').textContent = 
-          position.coords.speed ? (position.coords.speed * 3.6).toFixed(1) : '--';
-
-        if (previousPosition) {
-          const heading = google.maps.geometry.spherical.computeHeading(
-            previousPosition,
-            currentLatLng
-          );
-          
-          // Only update if heading change is significant
-          if (Math.abs(heading - lastHeading) > 5) {
-            updateMapOrientation(heading);
-            lastHeading = heading;
-          }
-
-          // Update navigation guidance
-          updateNavigationGuidance(currentLatLng);
-        } else if (isFirstPosition) {
-          // For the first position, set initial heading based on the first route step
-          if (currentRoute && currentRoute.legs && currentRoute.legs[0] && currentRoute.legs[0].steps[0]) {
-            const firstStep = currentRoute.legs[0].steps[0];
-            const heading = google.maps.geometry.spherical.computeHeading(
-              currentLatLng,
-              firstStep.end_location
-            );
-            updateMapOrientation(heading);
-          }
-          isFirstPosition = false;
+        
+        // Only update if heading change is significant (> 5 degrees)
+        if (Math.abs(heading - lastHeading) > 5) {
+          updateMapOrientation(heading);
+          lastHeading = heading;
         }
-
-        previousPosition = currentLatLng;
+      } 
+      // For first position, use compass heading if available
+      else if (position.coords.heading) {
+        updateMapOrientation(position.coords.heading);
+        lastHeading = position.coords.heading;
       }
+
+      previousPosition = currentLatLng;
+      updateNavigationGuidance(currentLatLng);
     }
 
     // Update map orientation based on heading
     function updateMapOrientation(heading) {
-      // Normalize the heading to be between 0 and 360
-      const normalizedHeading = ((heading % 360) + 360) % 360;
+      if (!navigationActive || !orientationLocked) return;
       
-      // Calculate the map rotation needed to keep the direction pointing up
-      // We need to rotate the map in the opposite direction of the heading
-      const mapRotation = (360 - normalizedHeading) % 360;
+      // Calculate the map rotation needed to keep direction of travel upward
+      // We subtract the heading because map rotation is counter-clockwise
+      const mapRotation = (360 - heading) % 360;
       
-      // Update the map orientation with smooth transition
+      // Apply smooth transition to the map
       map.setOptions({
         heading: mapRotation,
-        tilt: 45,
+        tilt: 45,  // Slight tilt for better 3D perspective
         gestureHandling: 'greedy'
       });
 
-      // Update the car marker rotation to match the actual heading
+      // Update car marker rotation (now redundant since map rotates)
       if (carMarker) {
         carMarker.setIcon({
           url: 'https://maps.gstatic.com/mapfiles/ms2/micons/cabs.png',
           scaledSize: new google.maps.Size(24, 24),
-          rotation: normalizedHeading
+          rotation: heading  // Point marker in direction of travel
         });
       }
 
-      // Update compass rotation
-      document.getElementById('compass').style.transform = `rotate(${normalizedHeading}deg)`;
+      // Update compass to show true north regardless of map rotation
+      document.getElementById('compass').style.transform = `rotate(${mapRotation}deg)`;
     }
 
     // Update navigation guidance
@@ -639,11 +665,10 @@
         }
       }
 
-      // Find the next significant turn (not just a waypoint)
+      // Find the next significant turn
       let nextTurnStep = null;
       for (let i = 0; i < remainingSteps.length; i++) {
         const step = remainingSteps[i];
-        // Check if this is a significant turn (not just continuing straight)
         if (step.instructions.toLowerCase().includes('turn') || 
             step.instructions.toLowerCase().includes('left') || 
             step.instructions.toLowerCase().includes('right') ||
@@ -655,16 +680,13 @@
       }
 
       if (nextTurnStep) {
-        // Calculate distance to the next significant turn
         const distanceToNextTurn = google.maps.geometry.spherical.computeDistanceBetween(
           currentPosition,
           nextTurnStep.start_location
         );
 
-        // Update next turn information display
         document.getElementById('nextTurn').textContent = nextTurnStep.instructions.replace(/<[^>]*>/g, '');
 
-        // Enhanced turn-by-turn guidance for significant turns
         if (distanceToNextTurn < 300 && distanceToNextTurn > 200 && lastAnnouncedDistance !== 300) {
           announceUpcomingTurn(nextTurnStep, 300);
         } else if (distanceToNextTurn < 200 && distanceToNextTurn > 100 && lastAnnouncedDistance !== 200) {
@@ -677,7 +699,6 @@
           announceUpcomingTurn(nextTurnStep, 20);
         }
 
-        // Announce when to make the turn
         if (distanceToNextTurn < 20 && lastAnnouncedTurn !== totalStepsPassed) {
           announceTurn(nextTurnStep);
           lastAnnouncedTurn = totalStepsPassed;
@@ -710,26 +731,22 @@
         let totalDistance = 0;
         let totalDuration = 0;
 
-        // Calculate total distance and duration by summing up all route legs
         result.routes[0].legs.forEach(leg => {
           totalDistance += leg.distance.value;
           totalDuration += leg.duration.value;
         });
 
-        // Convert to readable format
         const distanceText = formatDistance(totalDistance);
         const durationText = formatDuration(totalDuration);
 
         document.getElementById('distance').textContent = distanceText;
         document.getElementById('time').textContent = durationText;
 
-        // Update next turn information
         if (result.routes[0].legs[0].steps && result.routes[0].legs[0].steps.length > 0) {
           const nextStep = result.routes[0].legs[0].steps[0];
           document.getElementById('nextTurn').textContent = nextStep.instructions.replace(/<[^>]*>/g, '');
         }
 
-        // Reset navigation guidance variables when route changes
         currentStepIndex = 0;
         lastAnnouncedDistance = 0;
         lastAnnouncedTurn = null;
