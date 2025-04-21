@@ -1,801 +1,790 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Navigation System</title>
-  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-  <style>
-    body {
-      margin: 0;
-      padding: 0;
-      font-family: 'Roboto', sans-serif;
-      height: 100vh;
-      overflow: hidden;
-    }
-    #map {
-      height: 100vh;
-      width: 100%;
-    }
-    #controls {
-      position: absolute;
-      top: 20px;
-      left: 20px;
-      z-index: 2;
-      background: white;
-      padding: 15px;
-      border-radius: 8px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-      min-width: 250px;
-    }
-    #location-search {
-      width: 100%;
-      padding: 8px;
-      margin-bottom: 10px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      box-sizing: border-box;
-    }
-    .button-container {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-    button {
-      padding: 8px 12px;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 5px;
-      font-family: 'Roboto', sans-serif;
-      transition: background-color 0.3s;
-    }
-    #useLocation {
-      background-color: #4285f4;
-      color: white;
-    }
-    #travel-modes {
-      display: flex;
-      gap: 5px;
-      margin: 10px 0;
-    }
-    .travel-mode-btn {
-      flex: 1;
-      background-color: #f1f3f4;
-      color: #5f6368;
-    }
-    .travel-mode-btn.active {
-      background-color: #4285f4;
-      color: white;
-    }
-    #startNavigation {
-      background-color: #34a853;
-      color: white;
-    }
-    #stopNavigation {
-      background-color: #ea4335;
-      color: white;
-      display: none;
-    }
-    #navigation-info {
-      position: absolute;
-      bottom: 20px;
-      left: 20px;
-      right: 20px;
-      background: white;
-      padding: 15px;
-      border-radius: 8px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-      z-index: 2;
-    }
-    .info-item {
-      margin: 5px 0;
-      font-size: 14px;
-    }
-    .loading {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background: white;
-      padding: 20px;
-      border-radius: 8px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-      z-index: 3;
-    }
-    #coordinates {
-      font-size: 12px;
-      color: #5f6368;
-      margin-bottom: 10px;
-    }
-    .material-icons {
-      font-size: 18px;
-    }
-    #compass {
-      position: absolute;
-      top: 20px;
-      right: 20px;
-      background: white;
-      padding: 10px;
-      border-radius: 50%;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-      z-index: 2;
-      transform: rotate(0deg);
-      transition: transform 0.3s ease;
-    }
-    #orientationToggle {
-      position: absolute;
-      top: 70px;
-      right: 20px;
-      background: white;
-      padding: 10px;
-      border-radius: 50%;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-      z-index: 2;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Navigation System</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Roboto', sans-serif;
+            height: 100vh;
+            overflow: hidden;
+        }
+        #map {
+            height: 100vh;
+            width: 100%;
+        }
+        #controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 2;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            min-width: 250px;
+        }
+        #location-search {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .button-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        button {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            font-family: 'Roboto', sans-serif;
+            transition: background-color 0.3s;
+        }
+        #useLocation {
+            background-color: #4285f4;
+            color: white;
+        }
+        #travel-modes {
+            display: flex;
+            gap: 5px;
+            margin: 10px 0;
+        }
+        .travel-mode-btn {
+            flex: 1;
+            background-color: #f1f3f4;
+            color: #5f6368;
+        }
+        .travel-mode-btn.active {
+            background-color: #4285f4;
+            color: white;
+        }
+        #startNavigation {
+            background-color: #34a853;
+            color: white;
+        }
+        #stopNavigation {
+            background-color: #ea4335;
+            color: white;
+            display: none;
+        }
+        #navigation-info {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            z-index: 2;
+        }
+        .info-item {
+            margin: 5px 0;
+            font-size: 14px;
+        }
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            z-index: 3;
+        }
+        #coordinates {
+            font-size: 12px;
+            color: #5f6368;
+            margin-bottom: 10px;
+        }
+        .material-icons {
+            font-size: 18px;
+        }
+        #compass {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: white;
+            padding: 10px;
+            border-radius: 50%;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            z-index: 2;
+            transform: rotate(0deg);
+            transition: transform 0.3s ease;
+        }
+        #orientationToggle {
+            position: absolute;
+            top: 70px;
+            right: 20px;
+            background: white;
+            padding: 10px;
+            border-radius: 50%;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            z-index: 2;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+    </style>
 </head>
 <body>
-  <div id="map"></div>
-  <div id="controls">
-      <input 
-        id="location-search" 
-        type="text" 
-        placeholder="Enter a starting location"
-        autocomplete="off"
-      >
-    <div id="coordinates">Current Location: Fetching...</div>
-    <div class="button-container">
-      <button id="useLocation">
-        <span class="material-icons">my_location</span>
-        Use Current Location
-      </button>
-      <div id="travel-modes">
-        <button class="travel-mode-btn active" data-mode="DRIVING">
-          <span class="material-icons">directions_car</span>
-        </button>
-        <button class="travel-mode-btn" data-mode="WALKING">
-          <span class="material-icons">directions_walk</span>
-        </button>
-        <button class="travel-mode-btn" data-mode="BICYCLING">
-          <span class="material-icons">directions_bike</span>
-        </button>
-      </div>
-      <button id="startNavigation">
-        <span class="material-icons">navigation</span>
-        Start Navigation
-      </button>
-      <button id="stopNavigation">
-        <span class="material-icons">stop</span>
-        Stop Navigation
-      </button>
+    <div id="map"></div>
+    <div id="controls">
+        <input
+            id="location-search"
+            type="text"
+            placeholder="Enter a starting location"
+            autocomplete="off"
+        >
+        <div id="coordinates">Current Location: Fetching...</div>
+        <div class="button-container">
+            <button id="useLocation">
+                <span class="material-icons">my_location</span>
+                Use Current Location
+            </button>
+            <div id="travel-modes">
+                <button class="travel-mode-btn active" data-mode="DRIVING">
+                    <span class="material-icons">directions_car</span>
+                </button>
+                <button class="travel-mode-btn" data-mode="WALKING">
+                    <span class="material-icons">directions_walk</span>
+                </button>
+                <button class="travel-mode-btn" data-mode="BICYCLING">
+                    <span class="material-icons">directions_bike</span>
+                </button>
+            </div>
+            <button id="startNavigation">
+                <span class="material-icons">navigation</span>
+                Start Navigation
+            </button>
+            <button id="stopNavigation">
+                <span class="material-icons">stop</span>
+                Stop Navigation
+            </button>
+        </div>
     </div>
-  </div>
-  
-  <div id="navigation-info">
-    <div class="info-item">Distance to destination: <span id="distance">--</span></div>
-    <div class="info-item">Estimated time: <span id="time">--</span></div>
-    <div class="info-item">Current speed: <span id="speed">--</span> km/h</div>
-    <div class="info-item">Next turn: <span id="nextTurn">--</span></div>
-  </div>
 
-  <div id="compass">
-    <span class="material-icons">explore</span>
-  </div>
+    <div id="navigation-info">
+        <div class="info-item">Distance to destination: <span id="distance">--</span></div>
+        <div class="info-item">Estimated time: <span id="time">--</span></div>
+        <div class="info-item">Current speed: <span id="speed">--</span> km/h</div>
+        <div class="info-item">Next turn: <span id="nextTurn">--</span></div>
+    </div>
 
-  <button id="orientationToggle">
-    <span class="material-icons">navigation</span>
-    <span id="orientationText">North Up</span>
-  </button>
+    <div id="compass">
+        <span class="material-icons">explore</span>
+    </div>
 
-  <div id="loading" class="loading">Loading map...</div>
+    <button id="orientationToggle">
+        <span class="material-icons">navigation</span>
+        <span id="orientationText">North Up</span>
+    </button>
 
-  <!-- Load the Google Maps JavaScript API first -->
-  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBCN_NsTb_psU3rjRw8t7-Pn7lcKJiut8w&libraries=places,geometry"></script>
+    <div id="loading" class="loading">Loading map...</div>
 
-  <!-- Then load your application code -->
-  <script>
-    // Global variables
-    let map;
-    let directionsService;
-    let directionsRenderer;
-    let userLocation = null;
-    let destination = { lat: 36.673650425129885, lng: 74.84089646369341 };
-    let waypoints = [
-      { lat: 36.67581722575873, lng: 74.84178710801044 },
-      { lat: 36.675405894681084, lng: 74.84173669338242 }
-    ];
-    let currentTravelMode = 'DRIVING';
-    let currentLocationMarker = null;
-    let carMarker = null;
-    let navigationActive = false;
-    let watchId = null;
-    let previousPosition = null;
-    let currentRoute = null;
-    let speechSynthesis = window.speechSynthesis;
-    let waypointMarkers = [];
-    let destinationMarker = null;
-    let autocomplete;
-    let lastAnnouncedDistance = 0;
-    let lastAnnouncedTurn = null;
-    let currentStepIndex = 0;
-    let lastHeading = 0;
-    let isFirstPosition = true;
-    let orientationLocked = false;
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBCN_NsTb_psU3rjRw8t7-Pn7lcKJiut8w&libraries=places,geometry"></script>
 
-    // Initialize the map
-    function initMap() {
-      try {
-        // Initialize the map with destination as center
-        map = new google.maps.Map(document.getElementById('map'), {
-          zoom: 14,
-          center: destination,
-          mapTypeControl: true,
-          streetViewControl: false,
-          zoomControl: true,
-          fullscreenControl: true,
-          heading: 0,
-          tilt: 0,
-          gestureHandling: 'greedy'
-        });
+    <script>
+        // Global variables
+        let map;
+        let directionsService;
+        let directionsRenderer;
+        let userLocation = null;
+        let destination = { lat: 36.673650425129885, lng: 74.84089646369341 };
+        let waypoints = [
+            { lat: 36.67581722575873, lng: 74.84178710801044 },
+            { lat: 36.675405894681084, lng: 74.84173669338242 }
+        ];
+        let currentTravelMode = 'DRIVING';
+        let currentLocationMarker = null;
+        let carMarker = null;
+        let navigationActive = false;
+        let watchId = null;
+        let previousPosition = null;
+        let currentRoute = null;
+        let speechSynthesis = window.speechSynthesis;
+        let waypointMarkers = [];
+        let destinationMarker = null;
+        let autocomplete;
+        let lastAnnouncedDistance = 0;
+        let lastAnnouncedTurn = null;
+        let currentStepIndex = 0;
+        let lastHeading = 0;
+        let isFirstPosition = true;
+        let orientationLocked = false;
 
-        // Initialize directions service and renderer
-        directionsService = new google.maps.DirectionsService();
-        directionsRenderer = new google.maps.DirectionsRenderer({
-          map: map,
-          suppressMarkers: true,
-          polylineOptions: {
-            strokeColor: '#4285f4',
-            strokeWeight: 5,
-            strokeOpacity: 0.8
-          }
-        });
+        // Initialize the map
+        function initMap() {
+            try {
+                // Initialize the map with destination as center
+                map = new google.maps.Map(document.getElementById('map'), {
+                    zoom: 14,
+                    center: destination,
+                    mapTypeControl: true,
+                    streetViewControl: false,
+                    zoomControl: true,
+                    fullscreenControl: true,
+                    heading: 0,
+                    tilt: 0,
+                    gestureHandling: 'greedy'
+                });
 
-        // Initialize the autocomplete for location search
-        autocomplete = new google.maps.places.Autocomplete(
-          document.getElementById('location-search'),
-          {
-            types: ['geocode'],
-            componentRestrictions: { country: 'pk' }
-          }
-        );
+                // Initialize directions service and renderer
+                directionsService = new google.maps.DirectionsService();
+                directionsRenderer = new google.maps.DirectionsRenderer({
+                    map: map,
+                    suppressMarkers: true,
+                    polylineOptions: {
+                        strokeColor: '#4285f4',
+                        strokeWeight: 5,
+                        strokeOpacity: 0.8
+                    }
+                });
 
-        // Add markers for waypoints
-        waypoints.forEach((waypoint, index) => {
-          const marker = new google.maps.Marker({
-            position: waypoint,
-            map: map,
-            title: `Waypoint ${index + 1}`,
-            icon: {
-              path: google.maps.SymbolPath.CIRCLE,
-              scale: 8,
-              fillColor: "#FF9800",
-              fillOpacity: 1,
-              strokeColor: "#ffffff",
-              strokeWeight: 2
+                // Initialize the autocomplete for location search
+                autocomplete = new google.maps.places.Autocomplete(
+                    document.getElementById('location-search'),
+                    {
+                        types: ['geocode'],
+                        componentRestrictions: { country: 'pk' }
+                    }
+                );
+
+                // Add markers for waypoints
+                waypoints.forEach((waypoint, index) => {
+                    const marker = new google.maps.Marker({
+                        position: waypoint,
+                        map: map,
+                        title: `Waypoint ${index + 1}`,
+                        icon: {
+                            path: google.maps.SymbolPath.CIRCLE,
+                            scale: 8,
+                            fillColor: "#FF9800",
+                            fillOpacity: 1,
+                            strokeColor: "#ffffff",
+                            strokeWeight: 2
+                        }
+                    });
+                    waypointMarkers.push(marker);
+                });
+
+                // Add destination marker
+                destinationMarker = new google.maps.Marker({
+                    position: destination,
+                    map: map,
+                    title: "Destination",
+                    icon: {
+                        path: google.maps.SymbolPath.CIRCLE,
+                        scale: 10,
+                        fillColor: "#1a73e8",
+                        fillOpacity: 1,
+                        strokeColor: "#ffffff",
+                        strokeWeight: 2
+                    }
+                });
+
+                // Setup event listeners
+                setupEventListeners();
+
+                // Try to get user's location
+                fetchUserLocation(false);
+
+                // Hide loading indicator
+                document.getElementById("loading").style.display = "none";
+
+            } catch (error) {
+                console.error("Error initializing map:", error);
+                document.getElementById("loading").textContent = "Error loading map: " + error.message;
             }
-          });
-          waypointMarkers.push(marker);
-        });
-
-        // Add destination marker
-        destinationMarker = new google.maps.Marker({
-          position: destination,
-          map: map,
-          title: "Destination",
-          icon: {
-            path: google.maps.SymbolPath.CIRCLE,
-            scale: 10,
-            fillColor: "#1a73e8",
-            fillOpacity: 1,
-            strokeColor: "#ffffff",
-            strokeWeight: 2
-          }
-        });
+        }
 
         // Setup event listeners
-        setupEventListeners();
+        function setupEventListeners() {
+            document.getElementById("useLocation").addEventListener("click", () => fetchUserLocation(true));
+            document.getElementById("startNavigation").addEventListener("click", startNavigationSimulation);
+            document.getElementById("stopNavigation").addEventListener("click", stopNavigationSimulation);
+            document.getElementById("orientationToggle").addEventListener("click", toggleOrientation);
 
-        // Try to get user's location
-        fetchUserLocation(false);
+            // Add location search listener
+            autocomplete.addListener('place_changed', () => {
+                const place = autocomplete.getPlace();
+                if (place.geometry) {
+                    userLocation = {
+                        lat: place.geometry.location.lat(),
+                        lng: place.geometry.location.lng()
+                    };
+                    document.getElementById("coordinates").textContent = "Current Location: Set";
+                    updateStartingLocationMarker(userLocation);
+                }
+            });
 
-        // Hide loading indicator
-        document.getElementById("loading").style.display = "none";
-
-      } catch (error) {
-        console.error("Error initializing map:", error);
-        document.getElementById("loading").textContent = "Error loading map: " + error.message;
-      }
-    }
-
-    // Setup event listeners
-    function setupEventListeners() {
-      document.getElementById("useLocation").addEventListener("click", () => fetchUserLocation(true));
-      document.getElementById("startNavigation").addEventListener("click", startNavigationSimulation);
-      document.getElementById("stopNavigation").addEventListener("click", stopNavigationSimulation);
-      document.getElementById("orientationToggle").addEventListener("click", toggleOrientation);
-
-      // Add location search listener
-      autocomplete.addListener('place_changed', () => {
-        const place = autocomplete.getPlace();
-        if (place.geometry) {
-          userLocation = {
-            lat: place.geometry.location.lat(),
-            lng: place.geometry.location.lng()
-          };
-          document.getElementById("coordinates").textContent = "Current Location: Set";
-          updateStartingLocationMarker(userLocation);
+            // Add travel mode listeners
+            document.querySelectorAll('.travel-mode-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.travel-mode-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    currentTravelMode = btn.dataset.mode;
+                    if (userLocation) {
+                        calculateRoute(userLocation);
+                    }
+                });
+            });
         }
-      });
 
-      // Add travel mode listeners
-      document.querySelectorAll('.travel-mode-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          document.querySelectorAll('.travel-mode-btn').forEach(b => b.classList.remove('active'));
-          btn.classList.add('active');
-          currentTravelMode = btn.dataset.mode;
-          if (userLocation) {
-            calculateRoute(userLocation);
-          }
-        });
-      });
-    }
+        // Toggle orientation lock
+        function toggleOrientation() {
+            orientationLocked = !orientationLocked;
+            document.getElementById("orientationText").textContent =
+                orientationLocked ? 'Direction Up' : 'North Up';
 
-    // Toggle orientation lock
-    function toggleOrientation() {
-      orientationLocked = !orientationLocked;
-      document.getElementById("orientationText").textContent = 
-        orientationLocked ? 'Direction Up' : 'North Up';
-      
-      if (orientationLocked && lastHeading !== null) {
-        updateMapOrientation(lastHeading);
-      } else {
-        map.setOptions({
-          heading: 0,
-          tilt: 0
-        });
-      }
-    }
+            if (orientationLocked && lastHeading !== null) {
+                updateMapOrientation(lastHeading);
+            } else {
+                map.setOptions({
+                    heading: 0,
+                    tilt: 0
+                });
+            }
+        }
 
-    // Fetch user's location
-    function fetchUserLocation(showLoadingIndicator) {
-      if (showLoadingIndicator) {
-        document.getElementById("loading").style.display = "block";
-        document.getElementById("loading").textContent = "Getting your location...";
-      }
+        // Fetch user's location
+        function fetchUserLocation(showLoadingIndicator) {
+            if (showLoadingIndicator) {
+                document.getElementById("loading").style.display = "block";
+                document.getElementById("loading").textContent = "Getting your location...";
+            }
 
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            userLocation = {
-              lat: position.coords.latitude,
-              lng: position.coords.longitude
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        userLocation = {
+                            lat: position.coords.latitude,
+                            lng: position.coords.longitude
+                        };
+
+                        document.getElementById("coordinates").textContent = "Current Location: Set";
+                        document.getElementById("location-search").value = '';
+
+                        updateStartingLocationMarker(userLocation);
+
+                        if (showLoadingIndicator) {
+                            document.getElementById("loading").style.display = "none";
+                        }
+                    },
+                    (error) => {
+                        if (showLoadingIndicator) {
+                            document.getElementById("loading").style.display = "none";
+                        }
+                        handleLocationError(error);
+                    },
+                    {
+                        enableHighAccuracy: true,
+                        timeout: 5000,
+                        maximumAge: 0
+                    }
+                );
+            } else {
+                if (showLoadingIndicator) {
+                    document.getElementById("loading").style.display = "none";
+                }
+                alert("Geolocation is not supported by your browser.");
+            }
+        }
+
+        // Update the starting location marker
+        function updateStartingLocationMarker(location) {
+            if (currentLocationMarker) {
+                currentLocationMarker.setMap(null);
+            }
+
+            currentLocationMarker = new google.maps.Marker({
+                position: location,
+                map: map,
+                title: "Starting Location",
+                icon: {
+                    path: google.maps.SymbolPath.CIRCLE,
+                    scale: 12,
+                    fillColor: "#4285f4",
+                    fillOpacity: 1,
+                    strokeColor: "#ffffff",
+                    strokeWeight: 2
+                }
+            });
+
+            // Immediately calculate the route when marker is updated
+            calculateRoute(location);
+        }
+
+        // Calculate route
+        function calculateRoute(origin) {
+            document.getElementById("loading").style.display = "block";
+            document.getElementById("loading").textContent = "Calculating route...";
+
+            const request = {
+                origin: origin,
+                destination: destination,
+                waypoints: waypoints.map(waypoint => ({
+                    location: waypoint,
+                    stopover: true
+                })),
+                travelMode: google.maps.TravelMode[currentTravelMode],
+                optimizeWaypoints: true,
+                provideRouteAlternatives: false,
+                avoidHighways: false,
+                avoidTolls: false
             };
 
-            document.getElementById("coordinates").textContent = "Current Location: Set";
-            document.getElementById("location-search").value = '';
+            directionsService.route(request, (result, status) => {
+                document.getElementById("loading").style.display = "none";
+                if (status === google.maps.DirectionsStatus.OK) {
+                    directionsRenderer.setOptions({
+                        suppressMarkers: true,
+                        preserveViewport: false,
+                        polylineOptions: {
+                            strokeColor: '#4285f4',
+                            strokeWeight: 5,
+                            strokeOpacity: 0.8
+                        }
+                    });
 
-            updateStartingLocationMarker(userLocation);
+                    directionsRenderer.setDirections(result);
+                    currentRoute = result.routes[0];
 
-            if (showLoadingIndicator) {
-              document.getElementById("loading").style.display = "none";
+                    const bounds = new google.maps.LatLngBounds();
+                    bounds.extend(origin);
+                    waypoints.forEach(waypoint => bounds.extend(waypoint));
+                    bounds.extend(destination);
+                    map.fitBounds(bounds);
+
+                    updateNavigationInfo(result);
+                } else {
+                    alert("Could not calculate route: " + status);
+                }
+            });
+        }
+
+        // Start navigation simulation
+        function startNavigationSimulation() {
+            if (!navigationActive && userLocation) {
+                navigationActive = true;
+                isFirstPosition = true;
+                document.getElementById('startNavigation').style.display = 'none';
+                document.getElementById('stopNavigation').style.display = 'inline-block';
+
+                // Set initial map properties for navigation
+                map.setOptions({
+                    zoom: 18,
+                    tilt: 45,
+                    heading: 0,
+                    gestureHandling: 'greedy'
+                });
+
+                // Center the map on the user's location
+                map.setCenter(userLocation);
+
+                carMarker = new google.maps.Marker({
+                    position: userLocation,
+                    map: map,
+                    icon: {
+                        url: 'https://maps.gstatic.com/mapfiles/ms2/micons/cabs.png',
+                        scaledSize: new google.maps.Size(24, 24)
+                    }
+                });
+
+                watchId = navigator.geolocation.watchPosition(
+                    updateCarPosition,
+                    handleLocationError,
+                    {
+                        enableHighAccuracy: true,
+                        timeout: 5000,
+                        maximumAge: 0
+                    }
+                );
+
+                if (speechSynthesis) {
+                    const utterance = new SpeechSynthesisUtterance("Navigation started");
+                    speechSynthesis.speak(utterance);
+                }
+            } else if (!userLocation) {
+                alert("Please set a starting location first.");
             }
-          },
-          (error) => {
-            if (showLoadingIndicator) {
-              document.getElementById("loading").style.display = "none";
+        }
+
+        // Stop navigation simulation
+        function stopNavigationSimulation() {
+            if (navigationActive) {
+                navigationActive = false;
+                document.getElementById('startNavigation').style.display = 'inline-block';
+                document.getElementById('stopNavigation').style.display = 'none';
+
+                if (watchId) {
+                    navigator.geolocation.clearWatch(watchId);
+                    watchId = null;
+                }
+
+                if (carMarker) {
+                    carMarker.setMap(null);
+                    carMarker = null;
+                }
+
+                // Reset map orientation
+                map.setOptions({
+                    tilt: 0,
+                    heading: 0
+                });
+
+                if (speechSynthesis) {
+                    const utterance = new SpeechSynthesisUtterance("Navigation stopped");
+                    speechSynthesis.speak(utterance);
+                }
             }
-            handleLocationError(error);
-          },
-          {
-            enableHighAccuracy: true,
-            timeout: 5000,
-            maximumAge: 0
-          }
-        );
-      } else {
-        if (showLoadingIndicator) {
-          document.getElementById("loading").style.display = "none";
         }
-        alert("Geolocation is not supported by your browser.");
-      }
-    }
 
-    // Update the starting location marker
-    function updateStartingLocationMarker(location) {
-      if (currentLocationMarker) {
-        currentLocationMarker.setMap(null);
-      }
+        // Update car position
+        function updateCarPosition(position) {
+            if (!navigationActive || !carMarker) return;
 
-      currentLocationMarker = new google.maps.Marker({
-        position: location,
-        map: map,
-        title: "Starting Location",
-        icon: {
-          path: google.maps.SymbolPath.CIRCLE,
-          scale: 12,
-          fillColor: "#4285f4",
-          fillOpacity: 1,
-          strokeColor: "#ffffff",
-          strokeWeight: 2
-        }
-      });
+            const currentLatLng = new google.maps.LatLng(
+                position.coords.latitude,
+                position.coords.longitude
+            );
 
-      // Immediately calculate the route when marker is updated
-      calculateRoute(location);
-    }
+            carMarker.setPosition(currentLatLng);
+            map.setCenter(currentLatLng);
 
-    // Calculate route
-    function calculateRoute(origin) {
-      document.getElementById("loading").style.display = "block";
-      document.getElementById("loading").textContent = "Calculating route...";
+            // Update speed display
+            document.getElementById('speed').textContent =
+                position.coords.speed ? (position.coords.speed * 3.6).toFixed(1) : '--';
 
-      const request = {
-        origin: origin,
-        destination: destination,
-        waypoints: waypoints.map(waypoint => ({
-          location: waypoint,
-          stopover: true
-        })),
-        travelMode: google.maps.TravelMode[currentTravelMode],
-        optimizeWaypoints: true,
-        provideRouteAlternatives: false,
-        avoidHighways: false,
-        avoidTolls: false
-      };
+            // Calculate heading if we have previous position
+            if (previousPosition) {
+                const heading = google.maps.geometry.spherical.computeHeading(
+                    previousPosition,
+                    currentLatLng
+                );
 
-      directionsService.route(request, (result, status) => {
-        document.getElementById("loading").style.display = "none";
-        if (status === google.maps.DirectionsStatus.OK) {
-          directionsRenderer.setOptions({
-            suppressMarkers: true,
-            preserveViewport: false,
-            polylineOptions: {
-              strokeColor: '#4285f4',
-              strokeWeight: 5,
-              strokeOpacity: 0.8
+                // Only update if heading change is significant (> 3 degrees)
+                if (Math.abs(heading - lastHeading) > 3) {
+                    updateMapOrientation(heading);
+                    lastHeading = heading;
+                }
             }
-          });
-          
-          directionsRenderer.setDirections(result);
-          currentRoute = result.routes[0];
-          
-          const bounds = new google.maps.LatLngBounds();
-          bounds.extend(origin);
-          waypoints.forEach(waypoint => bounds.extend(waypoint));
-          bounds.extend(destination);
-          map.fitBounds(bounds);
+            // For first position, use compass heading if available
+            else if (position.coords.heading) {
+                updateMapOrientation(position.coords.heading);
+                lastHeading = position.coords.heading;
+            }
 
-          updateNavigationInfo(result);
-        } else {
-          alert("Could not calculate route: " + status);
-        }
-      });
-    }
-
-    // Start navigation simulation
-    function startNavigationSimulation() {
-      if (!navigationActive && userLocation) {
-        navigationActive = true;
-        isFirstPosition = true;
-        document.getElementById('startNavigation').style.display = 'none';
-        document.getElementById('stopNavigation').style.display = 'inline-block';
-        
-        // Set initial map properties for navigation
-        map.setOptions({
-          zoom: 18,
-          tilt: 45,
-          heading: 0,
-          gestureHandling: 'greedy'
-        });
-
-        // Center the map on the user's location
-        map.setCenter(userLocation);
-
-        carMarker = new google.maps.Marker({
-          position: userLocation,
-          map: map,
-          icon: {
-            url: 'https://maps.gstatic.com/mapfiles/ms2/micons/cabs.png',
-            scaledSize: new google.maps.Size(24, 24)
-          }
-        });
-
-        watchId = navigator.geolocation.watchPosition(
-          updateCarPosition,
-          handleLocationError,
-          {
-            enableHighAccuracy: true,
-            timeout: 5000,
-            maximumAge: 0
-          }
-        );
-
-        if (speechSynthesis) {
-          const utterance = new SpeechSynthesisUtterance("Navigation started");
-          speechSynthesis.speak(utterance);
-        }
-      } else if (!userLocation) {
-        alert("Please set a starting location first.");
-      }
-    }
-
-    // Stop navigation simulation
-    function stopNavigationSimulation() {
-      if (navigationActive) {
-        navigationActive = false;
-        document.getElementById('startNavigation').style.display = 'inline-block';
-        document.getElementById('stopNavigation').style.display = 'none';
-        
-        if (watchId) {
-          navigator.geolocation.clearWatch(watchId);
-          watchId = null;
-        }
-        
-        if (carMarker) {
-          carMarker.setMap(null);
-          carMarker = null;
+            previousPosition = currentLatLng;
+            updateNavigationGuidance(currentLatLng);
         }
 
-        // Reset map orientation
-        map.setOptions({
-          tilt: 0,
-          heading: 0
-        });
+        // Update map orientation based on heading
+        function updateMapOrientation(heading) {
+            if (!navigationActive || !orientationLocked) return;
 
-        if (speechSynthesis) {
-          const utterance = new SpeechSynthesisUtterance("Navigation stopped");
-          speechSynthesis.speak(utterance);
-        }
-      }
-    }
+            // Calculate the map rotation needed to keep direction of travel upward
+            // We subtract the heading because map rotation is counter-clockwise
+            const mapRotation = (360 - heading) % 360;
 
-    // Update car position
-    function updateCarPosition(position) {
-      if (!navigationActive || !carMarker) return;
+            // Apply smooth transition to the map
+            map.setOptions({
+                heading: mapRotation,
+                tilt: 45,  // Slight tilt for better 3D perspective
+                gestureHandling: 'greedy'
+            });
 
-      const currentLatLng = new google.maps.LatLng(
-        position.coords.latitude,
-        position.coords.longitude
-      );
-
-      carMarker.setPosition(currentLatLng);
-      map.setCenter(currentLatLng);
-
-      // Update speed display
-      document.getElementById('speed').textContent = 
-        position.coords.speed ? (position.coords.speed * 3.6).toFixed(1) : '--';
-
-      // Calculate heading if we have previous position
-      if (previousPosition) {
-        const heading = google.maps.geometry.spherical.computeHeading(
-          previousPosition,
-          currentLatLng
-        );
-        
-        // Only update if heading change is significant (> 5 degrees)
-        if (Math.abs(heading - lastHeading) > 5) {
-          updateMapOrientation(heading);
-          lastHeading = heading;
-        }
-      } 
-      // For first position, use compass heading if available
-      else if (position.coords.heading) {
-        updateMapOrientation(position.coords.heading);
-        lastHeading = position.coords.heading;
-      }
-
-      previousPosition = currentLatLng;
-      updateNavigationGuidance(currentLatLng);
-    }
-
-    // Update map orientation based on heading
-    function updateMapOrientation(heading) {
-      if (!navigationActive || !orientationLocked) return;
-      
-      // Calculate the map rotation needed to keep direction of travel upward
-      // We subtract the heading because map rotation is counter-clockwise
-      const mapRotation = (360 - heading) % 360;
-      
-      // Apply smooth transition to the map
-      map.setOptions({
-        heading: mapRotation,
-        tilt: 45,  // Slight tilt for better 3D perspective
-        gestureHandling: 'greedy'
-      });
-
-      // Update car marker rotation (now redundant since map rotates)
-      if (carMarker) {
-        carMarker.setIcon({
-          url: 'https://maps.gstatic.com/mapfiles/ms2/micons/cabs.png',
-          scaledSize: new google.maps.Size(24, 24),
-          rotation: heading  // Point marker in direction of travel
-        });
-      }
-
-      // Update compass to show true north regardless of map rotation
-      document.getElementById('compass').style.transform = `rotate(${mapRotation}deg)`;
-    }
-
-    // Update navigation guidance
-    function updateNavigationGuidance(currentPosition) {
-      if (!currentRoute || !currentRoute.legs || !currentRoute.legs[0]) return;
-
-      const legs = currentRoute.legs;
-      let currentLeg = 0;
-      let stepIndexInLeg = 0;
-      let totalStepsPassed = 0;
-      let foundCurrentPosition = false;
-
-      // Find current leg and step
-      for (let i = 0; i < legs.length && !foundCurrentPosition; i++) {
-        const leg = legs[i];
-        for (let j = 0; j < leg.steps.length; j++) {
-          const step = leg.steps[j];
-          const distanceToStep = google.maps.geometry.spherical.computeDistanceBetween(
-            currentPosition,
-            step.start_location
-          );
-          if (distanceToStep < 50) { // Within 50 meters of step
-            currentLeg = i;
-            stepIndexInLeg = j;
-            foundCurrentPosition = true;
-            break;
-          }
-          totalStepsPassed++;
-        }
-      }
-
-      if (!foundCurrentPosition) return;
-
-      // Get all remaining steps in the route
-      let remainingSteps = [];
-      for (let i = currentLeg; i < legs.length; i++) {
-        const leg = legs[i];
-        const startIndex = (i === currentLeg) ? stepIndexInLeg : 0;
-        for (let j = startIndex; j < leg.steps.length; j++) {
-          remainingSteps.push(leg.steps[j]);
-        }
-      }
-
-      // Find the next significant turn
-      let nextTurnStep = null;
-      for (let i = 0; i < remainingSteps.length; i++) {
-        const step = remainingSteps[i];
-        if (step.instructions.toLowerCase().includes('turn') || 
-            step.instructions.toLowerCase().includes('left') || 
-            step.instructions.toLowerCase().includes('right') ||
-            step.instructions.toLowerCase().includes('merge') ||
-            step.instructions.toLowerCase().includes('exit')) {
-          nextTurnStep = step;
-          break;
-        }
-      }
-
-      if (nextTurnStep) {
-        const distanceToNextTurn = google.maps.geometry.spherical.computeDistanceBetween(
-          currentPosition,
-          nextTurnStep.start_location
-        );
-
-        document.getElementById('nextTurn').textContent = nextTurnStep.instructions.replace(/<[^>]*>/g, '');
-
-        if (distanceToNextTurn < 300 && distanceToNextTurn > 200 && lastAnnouncedDistance !== 300) {
-          announceUpcomingTurn(nextTurnStep, 300);
-        } else if (distanceToNextTurn < 200 && distanceToNextTurn > 100 && lastAnnouncedDistance !== 200) {
-          announceUpcomingTurn(nextTurnStep, 200);
-        } else if (distanceToNextTurn < 100 && distanceToNextTurn > 50 && lastAnnouncedDistance !== 100) {
-          announceUpcomingTurn(nextTurnStep, 100);
-        } else if (distanceToNextTurn < 50 && distanceToNextTurn > 20 && lastAnnouncedDistance !== 50) {
-          announceUpcomingTurn(nextTurnStep, 50);
-        } else if (distanceToNextTurn < 20 && lastAnnouncedDistance !== 20) {
-          announceUpcomingTurn(nextTurnStep, 20);
+            // Update compass to show true north regardless of map rotation
+            document.getElementById('compass').style.transform = `rotate(${heading}deg)`;
         }
 
-        if (distanceToNextTurn < 20 && lastAnnouncedTurn !== totalStepsPassed) {
-          announceTurn(nextTurnStep);
-          lastAnnouncedTurn = totalStepsPassed;
+        // Update navigation guidance
+        function updateNavigationGuidance(currentPosition) {
+            if (!currentRoute || !currentRoute.legs || !currentRoute.legs[0]) return;
+
+            const legs = currentRoute.legs;
+            let currentLeg = 0;
+            let stepIndexInLeg = 0;
+            let totalStepsPassed = 0;
+            let foundCurrentPosition = false;
+
+            // Find current leg and step
+            for (let i = 0; i < legs.length && !foundCurrentPosition; i++) {
+                const leg = legs[i];
+                for (let j = 0; j < leg.steps.length; j++) {
+                    const step = leg.steps[j];
+                    const distanceToStep = google.maps.geometry.spherical.computeDistanceBetween(
+                        currentPosition,
+                        step.start_location
+                    );
+                    if (distanceToStep < 50) { // Within 50 meters of step
+                        currentLeg = i;
+                        stepIndexInLeg = j;
+                        foundCurrentPosition = true;
+                        break;
+                    }
+                    totalStepsPassed++;
+                }
+            }
+
+            if (!foundCurrentPosition) return;
+
+            // Get all remaining steps in the route
+            let remainingSteps = [];
+            for (let i = currentLeg; i < legs.length; i++) {
+                const leg = legs[i];
+                const startIndex = (i === currentLeg) ? stepIndexInLeg : 0;
+                for (let j = startIndex; j < leg.steps.length; j++) {
+                    remainingSteps.push(leg.steps[j]);
+                }
+            }
+
+            // Find the next significant turn
+            let nextTurnStep = null;
+            for (let i = 0; i < remainingSteps.length; i++) {
+                const step = remainingSteps[i];
+                if (step.instructions.toLowerCase().includes('turn') ||
+                    step.instructions.toLowerCase().includes('left') ||
+                    step.instructions.toLowerCase().includes('right') ||
+                    step.instructions.toLowerCase().includes('merge') ||
+                    step.instructions.toLowerCase().includes('exit')) {
+                    nextTurnStep = step;
+                    break;
+                }
+            }
+
+            if (nextTurnStep) {
+                const distanceToNextTurn = google.maps.geometry.spherical.computeDistanceBetween(
+                    currentPosition,
+                    nextTurnStep.start_location
+                );
+
+                document.getElementById('nextTurn').textContent = nextTurnStep.instructions.replace(/<[^>]*>/g, '');
+
+                if (distanceToNextTurn < 300 && distanceToNextTurn > 200 && lastAnnouncedDistance !== 300) {
+                    announceUpcomingTurn(nextTurnStep, 300);
+                } else if (distanceToNextTurn < 200 && distanceToNextTurn > 100 && lastAnnouncedDistance !== 200) {
+                    announceUpcomingTurn(nextTurnStep, 200);
+                } else if (distanceToNextTurn < 100 && distanceToNextTurn > 50 && lastAnnouncedDistance !== 100) {
+                    announceUpcomingTurn(nextTurnStep, 100);
+                } else if (distanceToNextTurn < 50 && distanceToNextTurn > 20 && lastAnnouncedDistance !== 50) {
+                    announceUpcomingTurn(nextTurnStep, 50);
+                } else if (distanceToNextTurn < 20 && lastAnnouncedDistance !== 20) {
+                    announceUpcomingTurn(nextTurnStep, 20);
+                }
+
+                if (distanceToNextTurn < 20 && lastAnnouncedTurn !== totalStepsPassed) {
+                    announceTurn(nextTurnStep);
+                    lastAnnouncedTurn = totalStepsPassed;
+                }
+            }
         }
-      }
-    }
 
-    // Announce upcoming turn with distance
-    function announceUpcomingTurn(step, distance) {
-      if (speechSynthesis) {
-        const instruction = step.instructions.replace(/<[^>]*>/g, '');
-        const utterance = new SpeechSynthesisUtterance(`In ${distance} meters, ${instruction}`);
-        speechSynthesis.speak(utterance);
-        lastAnnouncedDistance = distance;
-      }
-    }
-
-    // Announce turn instructions
-    function announceTurn(step) {
-      if (speechSynthesis) {
-        const instruction = step.instructions.replace(/<[^>]*>/g, '');
-        const utterance = new SpeechSynthesisUtterance(instruction);
-        speechSynthesis.speak(utterance);
-      }
-    }
-
-    // Update navigation info with route distance
-    function updateNavigationInfo(result) {
-      if (result.routes && result.routes[0] && result.routes[0].legs) {
-        let totalDistance = 0;
-        let totalDuration = 0;
-
-        result.routes[0].legs.forEach(leg => {
-          totalDistance += leg.distance.value;
-          totalDuration += leg.duration.value;
-        });
-
-        const distanceText = formatDistance(totalDistance);
-        const durationText = formatDuration(totalDuration);
-
-        document.getElementById('distance').textContent = distanceText;
-        document.getElementById('time').textContent = durationText;
-
-        if (result.routes[0].legs[0].steps && result.routes[0].legs[0].steps.length > 0) {
-          const nextStep = result.routes[0].legs[0].steps[0];
-          document.getElementById('nextTurn').textContent = nextStep.instructions.replace(/<[^>]*>/g, '');
+        // Announce upcoming turn with distance
+        function announceUpcomingTurn(step, distance) {
+            if (speechSynthesis) {
+                const instruction = step.instructions.replace(/<[^>]*>/g, '');
+                const utterance = new SpeechSynthesisUtterance(`In ${distance} meters, ${instruction}`);
+                speechSynthesis.speak(utterance);
+                lastAnnouncedDistance = distance;
+            }
         }
 
-        currentStepIndex = 0;
-        lastAnnouncedDistance = 0;
-        lastAnnouncedTurn = null;
-      }
-    }
+        // Announce turn instructions
+        function announceTurn(step) {
+            if (speechSynthesis) {
+                const instruction = step.instructions.replace(/<[^>]*>/g, '');
+                const utterance = new SpeechSynthesisUtterance(instruction);
+                speechSynthesis.speak(utterance);
+            }
+        }
 
-    // Format distance in meters/kilometers
-    function formatDistance(meters) {
-      if (meters < 1000) {
-        return `${meters} meters`;
-      } else {
-        return `${(meters / 1000).toFixed(1)} km`;
-      }
-    }
+        // Update navigation info with route distance
+        function updateNavigationInfo(result) {
+            if (result.routes && result.routes[0] && result.routes[0].legs) {
+                let totalDistance = 0;
+                let totalDuration = 0;
 
-    // Format duration in minutes/hours
-    function formatDuration(seconds) {
-      const minutes = Math.floor(seconds / 60);
-      if (minutes < 60) {
-        return `${minutes} minutes`;
-      } else {
-        const hours = Math.floor(minutes / 60);
-        const remainingMinutes = minutes % 60;
-        return `${hours} hour${hours > 1 ? 's' : ''} ${remainingMinutes} minutes`;
-      }
-    }
+                result.routes[0].legs.forEach(leg => {
+                    totalDistance += leg.distance.value;
+                    totalDuration += leg.duration.value;
+                });
 
-    // Handle location errors
-    function handleLocationError(error) {
-      let errorMessage = "Error getting location: ";
-      switch(error.code) {
-        case error.PERMISSION_DENIED:
-          errorMessage += "Please enable location services to use navigation.";
-          break;
-        case error.POSITION_UNAVAILABLE:
-          errorMessage += "Location information is unavailable.";
-          break;
-        case error.TIMEOUT:
-          errorMessage += "The request to get user location timed out.";
-          break;
-        default:
-          errorMessage += "An unknown error occurred.";
-      }
-      alert(errorMessage);
-      document.getElementById("loading").style.display = "none";
-    }
+                const distanceText = formatDistance(totalDistance);
+                const durationText = formatDuration(totalDuration);
 
-    // Initialize the map when the page loads
-    window.onload = initMap;
-  </script>
+                document.getElementById('distance').textContent = distanceText;
+                document.getElementById('time').textContent = durationText;
+
+                if (result.routes[0].legs[0].steps && result.routes[0].legs[0].steps.length > 0) {
+                    const nextStep = result.routes[0].legs[0].steps[0];
+                    document.getElementById('nextTurn').textContent = nextStep.instructions.replace(/<[^>]*>/g, '');
+                }
+
+                currentStepIndex = 0;
+                lastAnnouncedDistance = 0;
+                lastAnnouncedTurn = null;
+            }
+        }
+
+        // Format distance in meters/kilometers
+        function formatDistance(meters) {
+            if (meters < 1000) {
+                return `${meters} meters`;
+            } else {
+                return `${(meters / 1000).toFixed(1)} km`;
+            }
+        }
+
+        // Format duration in minutes/hours
+        function formatDuration(seconds) {
+            const minutes = Math.floor(seconds / 60);
+            if (minutes < 60) {
+                return `${minutes} minutes`;
+            } else {
+                const hours = Math.floor(minutes / 60);
+                const remainingMinutes = minutes % 60;
+                return `${hours} hour${hours > 1 ? 's' : ''} ${remainingMinutes} minutes`;
+            }
+        }
+
+        // Handle location errors
+        function handleLocationError(error) {
+            let errorMessage = "Error getting location: ";
+            switch(error.code) {
+                case error.PERMISSION_DENIED:
+                    errorMessage += "Please enable location services to use navigation.";
+                    break;
+                case error.POSITION_UNAVAILABLE:
+                    errorMessage += "Location information is unavailable.";
+                    break;
+                case error.TIMEOUT:
+                    errorMessage += "The request to get user location timed out.";
+                    break;
+                default:
+                    errorMessage += "An unknown error occurred.";
+            }
+            alert(errorMessage);
+            document.getElementById("loading").style.display = "none";
+        }
+
+        // Initialize the map when the page loads
+        window.onload = initMap;
+    </script>
 </body>
 </html>
